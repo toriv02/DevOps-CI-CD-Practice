@@ -59,7 +59,9 @@ pipeline {
         }
         
         stage('Run Backend Tests') {
-           
+            when {
+                expression { return env.PYTHON_AVAILABLE == 'true' }
+            }
             steps {
                 script {
                     echo "Running Django tests..."
