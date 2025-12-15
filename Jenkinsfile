@@ -13,7 +13,7 @@ pipeline {
             steps {
                 checkout scm
                 cleanWs()
-                echo "Рабочая директория: ${WORKSPACE}"
+                echo 'Рабочая директория: ${WORKSPACE}'
                 sh 'ls -la'
             }
         }
@@ -23,11 +23,11 @@ pipeline {
                 script {
                     // Получаем список измененных файлов
                     def changes = sh(
-                        script: 'git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ""',
+                        script: 'git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ''',
                         returnStdout: true
                     ).trim()
                     
-                    echo "Измененные файлы: ${changes}"
+                    echo 'Измененные файлы: ${changes}'
                     
                     env.HAS_CHANGES = changes ? 'true' : 'false'
                     
@@ -45,8 +45,8 @@ pipeline {
                         env.FRONTEND_CHANGED = 'false'
                     }
                     
-                    echo "Backend изменен: ${env.BACKEND_CHANGED}"
-                    echo "Frontend изменен: ${env.FRONTEND_CHANGED}"
+                    echo 'Backend изменен: ${env.BACKEND_CHANGED}'
+                    echo 'Frontend изменен: ${env.FRONTEND_CHANGED}'
                 }
             }
         }
@@ -57,7 +57,7 @@ pipeline {
             }
             steps {
                 script {
-                    echo "Настройка Python ${PYTHON_VERSION}"
+                    echo 'Настройка Python ${PYTHON_VERSION}'
                     
                     // Проверяем Python
                     sh 'python --version'
@@ -65,11 +65,11 @@ pipeline {
                     
                     // Устанавливаем зависимости (если есть requirements.txt)
                     sh '''
-                        if [ -f "requirements.txt" ]; then
-                            echo "Установка зависимостей из requirements.txt..."
+                        if [ -f 'requirements.txt' ]; then
+                            echo 'Установка зависимостей из requirements.txt...'
                             pip install -r requirements.txt
                         else
-                            echo "requirements.txt не найден, устанавливаем базовые зависимости..."
+                            echo 'requirements.txt не найден, устанавливаем базовые зависимости...'
                             pip install django djangorestframework
                         fi
                     '''
@@ -87,7 +87,7 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        echo "Проверка миграций Django..."
+                        echo 'Проверка миграций Django...'
                         python manage.py makemigrations --check --dry-run
                     '''
                 }
@@ -100,14 +100,14 @@ pipeline {
             }
             steps {
                 script {
-                    echo "Запуск тестов Django..."
+                    echo 'Запуск тестов Django...'
                     
                     sh '''
-                        echo "Создание тестовой базы данных..."
+                        echo 'Создание тестовой базы данных...'
                         # Если используется SQLite
                         python manage.py migrate --run-syncdb
                         
-                        echo "Запуск тестов..."
+                        echo 'Запуск тестов...'
                         python manage.py test project.tests --verbosity=2 --noinput
                     '''
                 }
@@ -132,7 +132,7 @@ pipeline {
             }
             steps {
                 script {
-                    echo "Настройка Node.js ${NODE_VERSION}"
+                    echo 'Настройка Node.js ${NODE_VERSION}'
                     dir(env.CLIENT_DIR) {
                         // Проверяем Node.js
                         sh 'node --version'
@@ -154,9 +154,9 @@ pipeline {
             }
             steps {
                 script {
-                    echo "Запуск тестов Frontend..."
+                    echo 'Запуск тестов Frontend...'
                     dir(env.CLIENT_DIR) {
-                        sh 'npm test -- --passWithNoTests || echo "Тесты фронтенда не найдены"'
+                        sh 'npm test -- --passWithNoTests || echo 'Тесты фронтенда не найдены''
                     }
                 }
             }
@@ -171,7 +171,7 @@ pipeline {
             }
             steps {
                 script {
-                    echo "Сборка Frontend для production..."
+                    echo 'Сборка Frontend для production...'
                     dir(env.CLIENT_DIR) {
                         sh 'npm run build'
                     }
@@ -188,19 +188,19 @@ pipeline {
             }
             steps {
                 script {
-                    echo "Проверка качества кода..."
+                    echo 'Проверка качества кода...'
                     
                     // Проверка синтаксиса Python
                     sh '''
-                        echo "Проверка синтаксиса Python..."
-                        python -m py_compile project/*.py 2>/dev/null || echo "Ошибки синтаксиса"
+                        echo 'Проверка синтаксиса Python...'
+                        python -m py_compile project/*.py 2>/dev/null || echo 'Ошибки синтаксиса'
                     '''
                     
                     // Проверка стиля кода (если установлен flake8)
                     sh '''
                         if command -v flake8 &> /dev/null; then
-                            echo "Проверка стиля кода с flake8..."
-                            flake8 project/ --max-line-length=120 --exclude=migrations || echo "Найдены стилевые ошибки"
+                            echo 'Проверка стиля кода с flake8...'
+                            flake8 project/ --max-line-length=120 --exclude=migrations || echo 'Найдены стилевые ошибки'
                         fi
                     '''
                 }
@@ -216,21 +216,21 @@ pipeline {
             }
             steps {
                 script {
-                    echo "Проверка безопасности..."
+                    echo 'Проверка безопасности...'
                     
                     // Проверка уязвимостей в зависимостях
                     sh '''
                         if command -v safety &> /dev/null; then
-                            echo "Проверка безопасности зависимостей..."
-                            safety check --full-report || echo "Найдены уязвимости"
+                            echo 'Проверка безопасности зависимостей...'
+                            safety check --full-report || echo 'Найдены уязвимости'
                         fi
                     '''
                     
                     // Проверка статического анализа безопасности
                     sh '''
                         if command -v bandit &> /dev/null; then
-                            echo "Статический анализ безопасности..."
-                            bandit -r project/ -f json -o bandit-report.json || echo "Анализ безопасности завершен"
+                            echo 'Статический анализ безопасности...'
+                            bandit -r project/ -f json -o bandit-report.json || echo 'Анализ безопасности завершен'
                         fi
                     '''
                 }
@@ -243,23 +243,23 @@ pipeline {
             }
             steps {
                 script {
-                    echo "Деплой на production..."
+                    echo 'Деплой на production...'
                     
                     // Здесь добавляем шаги деплоя
                     // Например, копирование файлов, перезапуск сервисов и т.д.
                     
-                    echo "1. Сборка статических файлов Django..."
+                    echo '1. Сборка статических файлов Django...'
                     sh 'python manage.py collectstatic --noinput'
                     
-                    echo "2. Применение миграций..."
+                    echo '2. Применение миграций...'
                     sh 'python manage.py migrate'
                     
-                    echo "3. Деплой завершен!"
+                    echo '3. Деплой завершен!'
                     
                     // Отправка уведомления
                     emailext(
-                        subject: " Деплой успешен: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                        body: "Сборка ${env.BUILD_NUMBER} успешно завершена и задеплоена.",
+                        subject: ' Деплой успешен: ${env.JOB_NAME} #${env.BUILD_NUMBER}',
+                        body: 'Сборка ${env.BUILD_NUMBER} успешно завершена и задеплоена.',
                         to: 'ваш_email@example.com'
                     )
                 }
@@ -269,10 +269,10 @@ pipeline {
     
     post {
         always {
-            echo "==================== СБОРКА ЗАВЕРШЕНА ===================="
-            echo "Статус: ${currentBuild.result ?: 'SUCCESS'}"
-            echo "Время выполнения: ${currentBuild.durationString}"
-            echo "=========================================================="
+            echo '==================== СБОРКА ЗАВЕРШЕНА ===================='
+            echo 'Статус: ${currentBuild.result ?: 'SUCCESS'}'
+            echo 'Время выполнения: ${currentBuild.durationString}'
+            echo '=========================================================='
             
             // Очистка workspace
             cleanWs()
@@ -283,7 +283,7 @@ pipeline {
             // Можно добавить уведомления в Slack, Teams и т.д.
             slackSend(
                 color: 'good',
-                message: "Сборка ${env.JOB_NAME} #${env.BUILD_NUMBER} успешна"
+                message: 'Сборка ${env.JOB_NAME} #${env.BUILD_NUMBER} успешна'
             )
         }
         failure {
@@ -291,14 +291,14 @@ pipeline {
             
             // Отправка уведомления об ошибке
             emailext(
-                subject: "Ошибка сборки: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Сборка ${env.BUILD_NUMBER} завершилась с ошибкой.\n\nПосмотреть логи: ${env.BUILD_URL}",
+                subject: 'Ошибка сборки: ${env.JOB_NAME} #${env.BUILD_NUMBER}',
+                body: 'Сборка ${env.BUILD_NUMBER} завершилась с ошибкой.\n\nПосмотреть логи: ${env.BUILD_URL}',
                 to: 'ваш_email@example.com'
             )
             
             slackSend(
                 color: 'danger',
-                message: "Сборка ${env.JOB_NAME} #${env.BUILD_NUMBER} провалилась"
+                message: 'Сборка ${env.JOB_NAME} #${env.BUILD_NUMBER} провалилась'
             )
         }
         unstable {
