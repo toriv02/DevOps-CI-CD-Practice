@@ -13,7 +13,9 @@ pipeline {
                 dir('client') {
                     bat 'npm ci --silent'
                 }
-                bat 'pip install -r requirements.txt'
+                bat 'python -m pip install -r requirements.txt'
+                // или явный путь, например:
+                // bat 'C:\\Python39\\Scripts\\pip.exe install -r requirements.txt'
             }
         }
         
