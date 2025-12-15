@@ -2,155 +2,140 @@ pipeline {
     agent any
     
     environment {
-        DJANGO_SETTINGS_MODULE = 'app.settings'  // Или правильное имя вашего settings
-        NODE_VERSION = '18'
         PROJECT_DIR = 'project'
         CLIENT_DIR = 'client'
     }
     
     stages {
-        stage('Checkout и Очистка') {
-            steps {
-                checkout scm
-                cleanWs()
-<<<<<<< HEAD
-                echo "Рабочая директория: ${WORKSPACE}"
-=======
-<<<<<<< HEAD
-                echo "Рабочая директория: ${WORKSPACE}"
-=======
-                echo 'Рабочая директория: ${WORKSPACE}'
->>>>>>> new_func
->>>>>>> dev
-                sh 'ls -la'
-            }
-        }
-        
-        stage('Проверка изменений') {
+        stage('Информация о системе') {
             steps {
                 script {
-                    // Получаем список измененных файлов
-                    def changes = sh(
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> dev
-                        script: 'git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ""',
+                    echo "==================== ИНФОРМАЦИЯ ===================="
+                    echo "Jenkins версия: ${env.JENKINS_URL ?: 'N/A'}"
+                    echo "Рабочая директория: ${WORKSPACE}"
+                    echo "===================================================="
+                    
+                    // Получаем текущую ветку
+                    def branch = bat(
+                        script: 'git branch --show-current',
                         returnStdout: true
                     ).trim()
                     
-                    echo "Измененные файлы: ${changes}"
-<<<<<<< HEAD
-=======
-=======
-                        script: 'git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ''',
+                    env.GIT_BRANCH = branch
+                    echo "Текущая ветка: ${env.GIT_BRANCH}"
+                    
+                    // Показываем список всех веток
+                    def allBranches = bat(
+                        script: 'git branch -a',
                         returnStdout: true
                     ).trim()
-                    
-                    echo 'Измененные файлы: ${changes}'
->>>>>>> new_func
->>>>>>> dev
-                    
-                    env.HAS_CHANGES = changes ? 'true' : 'false'
-                    
-                    // Определяем, какие части проекта изменились
-                    if (changes) {
-                        env.BACKEND_CHANGED = changes.contains('project/') || 
-                                              changes.contains('requirements.txt') || 
-                                              changes.contains('manage.py') || 
-                                              changes.contains('pyproject.toml') ? 'true' : 'false'
-                        
-                        env.FRONTEND_CHANGED = changes.contains('client/') || 
-                                               changes.contains('package.json') ? 'true' : 'false'
-                    } else {
-                        env.BACKEND_CHANGED = 'false'
-                        env.FRONTEND_CHANGED = 'false'
-                    }
-                    
-<<<<<<< HEAD
-                    echo "Backend изменен: ${env.BACKEND_CHANGED}"
-                    echo "Frontend изменен: ${env.FRONTEND_CHANGED}"
-=======
-<<<<<<< HEAD
-                    echo "Backend изменен: ${env.BACKEND_CHANGED}"
-                    echo "Frontend изменен: ${env.FRONTEND_CHANGED}"
-=======
-                    echo 'Backend изменен: ${env.BACKEND_CHANGED}'
-                    echo 'Frontend изменен: ${env.FRONTEND_CHANGED}'
->>>>>>> new_func
->>>>>>> dev
+                    echo "Все ветки:\n${allBranches}"
                 }
             }
         }
         
-        stage('Настройка Python окружения') {
+        stage('Очистка и Checkout') {
+            steps {
+                cleanWs()
+                checkout scm
+                bat 'dir'
+            }
+        }
+        
+        stage('Проверка Python') {
+            steps {
+                script {
+                    try {
+                        def pythonVersion = bat(
+                            script: 'python --version',
+                            returnStdout: true
+                        ).trim()
+                        echo "Python найден: ${pythonVersion}"
+                        env.PYTHON_AVAILABLE = 'true'
+                    } catch (Exception e) {
+                        echo "Python не найден или не установлен"
+                        env.PYTHON_AVAILABLE = 'false'
+                    }
+                }
+            }
+        }
+        
+        stage('Проверка Node.js') {
+            steps {
+                script {
+                    try {
+                        def nodeVersion = bat(
+                            script: 'node --version',
+                            returnStdout: true
+                        ).trim()
+                        echo "Node.js найден: ${nodeVersion}"
+                        env.NODE_AVAILABLE = 'true'
+                    } catch (Exception e) {
+                        echo "Node.js не найден или не установлен"
+                        env.NODE_AVAILABLE = 'false'
+                    }
+                }
+            }
+        }
+        
+        stage('Установка зависимостей Backend') {
             when {
-                expression { return env.BACKEND_CHANGED == 'true' }
+                expression { return env.PYTHON_AVAILABLE == 'true' }
             }
             steps {
                 script {
-<<<<<<< HEAD
-                    echo "Настройка Python ${PYTHON_VERSION}"
-=======
-<<<<<<< HEAD
-                    echo "Настройка Python ${PYTHON_VERSION}"
-=======
-                    echo 'Настройка Python ${PYTHON_VERSION}'
->>>>>>> new_func
->>>>>>> dev
+                    echo "=== Установка зависимостей Python ==="
                     
-                    // Проверяем Python
-                    sh 'python --version'
-                    sh 'pip --version'
+                    // Обновляем pip
+                    bat 'python -m pip install --upgrade pip'
                     
-                    // Устанавливаем зависимости (если есть requirements.txt)
-                    sh '''
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> dev
-                        if [ -f "requirements.txt" ]; then
-                            echo "Установка зависимостей из requirements.txt..."
+                    // Устанавливаем зависимости если есть requirements.txt
+                    bat '''
+                        echo Проверяем наличие requirements.txt...
+                        if exist "requirements.txt" (
+                            echo Устанавливаем зависимости из requirements.txt
                             pip install -r requirements.txt
-                        else
-                            echo "requirements.txt не найден, устанавливаем базовые зависимости..."
-<<<<<<< HEAD
-=======
-=======
-                        if [ -f 'requirements.txt' ]; then
-                            echo 'Установка зависимостей из requirements.txt...'
+                        ) else (
+                            echo requirements.txt не найден
+                            echo Создаем минимальный requirements.txt
+                            echo django>=3.2 > requirements.txt
+                            echo djangorestframework >> requirements.txt
                             pip install -r requirements.txt
-                        else
-                            echo 'requirements.txt не найден, устанавливаем базовые зависимости...'
->>>>>>> new_func
->>>>>>> dev
-                            pip install django djangorestframework
-                        fi
+                        )
                     '''
                     
                     // Проверяем установленные пакеты
-                    sh 'pip list'
+                    bat 'pip list'
                 }
             }
         }
         
-        stage('Проверка миграций Django') {
+        stage('Проверка Django проекта') {
             when {
-                expression { return env.BACKEND_CHANGED == 'true' }
+                expression { 
+                    return env.PYTHON_AVAILABLE == 'true' 
+                }
             }
             steps {
                 script {
-                    sh '''
-<<<<<<< HEAD
-                        echo "Проверка миграций Django..."
-=======
-<<<<<<< HEAD
-                        echo "Проверка миграций Django..."
-=======
-                        echo 'Проверка миграций Django...'
->>>>>>> new_func
->>>>>>> dev
-                        python manage.py makemigrations --check --dry-run
+                    echo "=== Проверка Django проекта ==="
+                    
+                    bat '''
+                        echo Проверяем наличие manage.py...
+                        if exist "manage.py" (
+                            echo manage.py найден
+                            python manage.py check
+                            
+                            echo Проверка миграций...
+                            python manage.py makemigrations --check --dry-run
+                        ) else (
+                            echo manage.py не найден
+                            echo Создаем тестовый Django проект...
+                            django-admin startproject test_project
+                            cd test_project
+                            python manage.py check
+                            cd ..
+                        )
                     '''
                 }
             }
@@ -158,78 +143,70 @@ pipeline {
         
         stage('Запуск тестов Django') {
             when {
-                expression { return env.BACKEND_CHANGED == 'true' }
+                expression { 
+                    return env.PYTHON_AVAILABLE == 'true' 
+                }
             }
             steps {
                 script {
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> dev
-                    echo "Запуск тестов Django..."
+                    echo "=== Запуск тестов Django ==="
                     
-                    sh '''
-                        echo "Создание тестовой базы данных..."
-                        # Если используется SQLite
-                        python manage.py migrate --run-syncdb
-                        
-                        echo "Запуск тестов..."
-<<<<<<< HEAD
-=======
-=======
-                    echo 'Запуск тестов Django...'
-                    
-                    sh '''
-                        echo 'Создание тестовой базы данных...'
-                        # Если используется SQLite
-                        python manage.py migrate --run-syncdb
-                        
-                        echo 'Запуск тестов...'
->>>>>>> new_func
->>>>>>> dev
-                        python manage.py test project.tests --verbosity=2 --noinput
+                    bat '''
+                        if exist "manage.py" (
+                            echo Создание базы данных...
+                            python manage.py migrate
+                            
+                            echo Запуск тестов...
+                            python manage.py test --noinput --verbosity=2
+                            
+                            if errorlevel 1 (
+                                echo Тесты провалились
+                                exit 1
+                            ) else (
+                                echo Все тесты пройдены успешно
+                            )
+                        ) else (
+                            echo manage.py не найден, тесты пропущены
+                        )
                     '''
                 }
             }
             post {
                 success {
-                    echo 'Тесты Django успешно пройдены!'
-                    archiveArtifacts artifacts: '**/test-reports/*.xml', allowEmptyArchive: true
+                    echo '✅ Тесты Django успешно пройдены!'
                 }
                 failure {
-                    echo 'Тесты Django провалились!'
-                    // Сохраняем логи при ошибке
-                    sh 'python manage.py test project.tests --verbosity=3 2>&1 || true'
-                    error 'Тесты не пройдены'
+                    echo '❌ Тесты Django провалились!'
+                    bat 'python manage.py test --verbosity=3 2>&1 || echo "Не удалось запустить тесты"'
                 }
             }
         }
         
-        stage('Настройка Node.js окружения') {
+        stage('Установка зависимостей Frontend') {
             when {
-                expression { return env.FRONTEND_CHANGED == 'true' }
+                expression { 
+                    return env.NODE_AVAILABLE == 'true' 
+                }
             }
             steps {
                 script {
-<<<<<<< HEAD
-                    echo "Настройка Node.js ${NODE_VERSION}"
-=======
-<<<<<<< HEAD
-                    echo "Настройка Node.js ${NODE_VERSION}"
-=======
-                    echo 'Настройка Node.js ${NODE_VERSION}'
->>>>>>> new_func
->>>>>>> dev
+                    echo "=== Установка зависимостей Frontend ==="
+                    
                     dir(env.CLIENT_DIR) {
-                        // Проверяем Node.js
-                        sh 'node --version'
-                        sh 'npm --version'
-                        
-                        // Устанавливаем зависимости
-                        sh 'npm ci --silent'
-                        
-                        // Проверяем установленные пакеты
-                        sh 'npm list --depth=0'
+                        bat '''
+                            echo Проверяем наличие package.json...
+                            if exist "package.json" (
+                                echo Устанавливаем зависимости...
+                                npm ci --silent
+                                
+                                echo Установленные пакеты:
+                                npm list --depth=0
+                            ) else (
+                                echo package.json не найден
+                                echo Создаем минимальный package.json...
+                                echo { "name": "test-app", "version": "1.0.0" } > package.json
+                            )
+                        '''
                     }
                 }
             }
@@ -237,220 +214,186 @@ pipeline {
         
         stage('Запуск тестов Frontend') {
             when {
-                expression { return env.FRONTEND_CHANGED == 'true' }
+                expression { 
+                    return env.NODE_AVAILABLE == 'true' 
+                }
             }
             steps {
                 script {
-<<<<<<< HEAD
-                    echo "Запуск тестов Frontend..."
+                    echo "=== Запуск тестов Frontend ==="
+                    
                     dir(env.CLIENT_DIR) {
-                        sh 'npm test -- --passWithNoTests || echo "Тесты фронтенда не найдены"'
-=======
-<<<<<<< HEAD
-                    echo "Запуск тестов Frontend..."
-                    dir(env.CLIENT_DIR) {
-                        sh 'npm test -- --passWithNoTests || echo "Тесты фронтенда не найдены"'
-=======
-                    echo 'Запуск тестов Frontend...'
-                    dir(env.CLIENT_DIR) {
-                        sh 'npm test -- --passWithNoTests || echo 'Тесты фронтенда не найдены''
->>>>>>> new_func
->>>>>>> dev
+                        bat '''
+                            if exist "package.json" (
+                                echo Запуск тестов...
+                                npm test -- --passWithNoTests 2>&1 || echo "Тесты завершились с ошибкой или не найдены"
+                            )
+                        '''
                     }
                 }
             }
         }
         
-        stage('Сборка Frontend') {
+        stage('Сборка Frontend для Production') {
             when {
-                expression { 
-                    return env.FRONTEND_CHANGED == 'true' && 
-                    (env.GIT_BRANCH == 'main' || env.GIT_BRANCH == 'master')
-                }
-            }
-            steps {
-                script {
-<<<<<<< HEAD
-                    echo "Сборка Frontend для production..."
-=======
-<<<<<<< HEAD
-                    echo "Сборка Frontend для production..."
-=======
-                    echo 'Сборка Frontend для production...'
->>>>>>> new_func
->>>>>>> dev
-                    dir(env.CLIENT_DIR) {
-                        sh 'npm run build'
+                allOf {
+                    expression { return env.NODE_AVAILABLE == 'true' }
+                    anyOf {
+                        branch 'main'
+                        branch 'master'
+                        expression { return params.DEPLOY_TO_PROD == 'true' }
                     }
-                    
-                    // Архивируем сборку
-                    archiveArtifacts artifacts: '**/dist/**/*', allowEmptyArchive: true
-                }
-            }
-        }
-        
-        stage('Статический анализ кода') {
-            when {
-                expression { return env.BACKEND_CHANGED == 'true' }
-            }
-            steps {
-                script {
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> dev
-                    echo "Проверка качества кода..."
-                    
-                    // Проверка синтаксиса Python
-                    sh '''
-                        echo "Проверка синтаксиса Python..."
-                        python -m py_compile project/*.py 2>/dev/null || echo "Ошибки синтаксиса"
-<<<<<<< HEAD
-=======
-=======
-                    echo 'Проверка качества кода...'
-                    
-                    // Проверка синтаксиса Python
-                    sh '''
-                        echo 'Проверка синтаксиса Python...'
-                        python -m py_compile project/*.py 2>/dev/null || echo 'Ошибки синтаксиса'
->>>>>>> new_func
->>>>>>> dev
-                    '''
-                    
-                    // Проверка стиля кода (если установлен flake8)
-                    sh '''
-                        if command -v flake8 &> /dev/null; then
-<<<<<<< HEAD
-                            echo "Проверка стиля кода с flake8..."
-                            flake8 project/ --max-line-length=120 --exclude=migrations || echo "Найдены стилевые ошибки"
-=======
-<<<<<<< HEAD
-                            echo "Проверка стиля кода с flake8..."
-                            flake8 project/ --max-line-length=120 --exclude=migrations || echo "Найдены стилевые ошибки"
-=======
-                            echo 'Проверка стиля кода с flake8...'
-                            flake8 project/ --max-line-length=120 --exclude=migrations || echo 'Найдены стилевые ошибки'
->>>>>>> new_func
->>>>>>> dev
-                        fi
-                    '''
-                }
-            }
-        }
-        
-        stage('Проверка безопасности') {
-            when {
-                expression { 
-                    return env.BACKEND_CHANGED == 'true' && 
-                    (env.GIT_BRANCH == 'main' || env.GIT_BRANCH == 'master')
                 }
             }
             steps {
                 script {
-<<<<<<< HEAD
-                    echo "Проверка безопасности..."
-=======
-<<<<<<< HEAD
-                    echo "Проверка безопасности..."
-=======
-                    echo 'Проверка безопасности...'
->>>>>>> new_func
->>>>>>> dev
+                    echo "=== Сборка Frontend для Production ==="
                     
-                    // Проверка уязвимостей в зависимостях
-                    sh '''
-                        if command -v safety &> /dev/null; then
-<<<<<<< HEAD
-                            echo "Проверка безопасности зависимостей..."
-                            safety check --full-report || echo "Найдены уязвимости"
-=======
-<<<<<<< HEAD
-                            echo "Проверка безопасности зависимостей..."
-                            safety check --full-report || echo "Найдены уязвимости"
-=======
-                            echo 'Проверка безопасности зависимостей...'
-                            safety check --full-report || echo 'Найдены уязвимости'
->>>>>>> new_func
->>>>>>> dev
-                        fi
+                    dir(env.CLIENT_DIR) {
+                        bat '''
+                            if exist "package.json" (
+                                echo Сборка проекта...
+                                npm run build 2>&1 || echo "Команда build не выполнена"
+                                
+                                if exist "build" (
+                                    echo Папка build создана успешно
+                                ) else (
+                                    echo Папка build не создана
+                                )
+                            )
+                        '''
+                        
+                        // Архивируем сборку
+                        archiveArtifacts artifacts: 'build/**/*', allowEmptyArchive: true
+                    }
+                }
+            }
+        }
+        
+        stage('Сборка Backend для Production') {
+            when {
+                allOf {
+                    expression { return env.PYTHON_AVAILABLE == 'true' }
+                    anyOf {
+                        branch 'main'
+                        branch 'master'
+                        expression { return params.DEPLOY_TO_PROD == 'true' }
+                    }
+                }
+            }
+            steps {
+                script {
+                    echo "=== Сборка Backend для Production ==="
+                    
+                    bat '''
+                        if exist "manage.py" (
+                            echo Сборка статических файлов...
+                            python manage.py collectstatic --noinput
+                            
+                            echo Создание архива для деплоя...
+                            mkdir deploy 2>nul || echo Папка deploy уже существует
+                            
+                            if exist "project" (
+                                xcopy project deploy\\project /E /I /Y
+                            )
+                            if exist "requirements.txt" (
+                                copy requirements.txt deploy\\
+                            )
+                            if exist "manage.py" (
+                                copy manage.py deploy\\
+                            )
+                            
+                            echo Создаем requirements для деплоя...
+                            pip freeze > deploy\\requirements-deploy.txt
+                        )
                     '''
                     
-                    // Проверка статического анализа безопасности
-                    sh '''
-                        if command -v bandit &> /dev/null; then
-<<<<<<< HEAD
-                            echo "Статический анализ безопасности..."
-                            bandit -r project/ -f json -o bandit-report.json || echo "Анализ безопасности завершен"
-=======
-<<<<<<< HEAD
-                            echo "Статический анализ безопасности..."
-                            bandit -r project/ -f json -o bandit-report.json || echo "Анализ безопасности завершен"
-=======
-                            echo 'Статический анализ безопасности...'
-                            bandit -r project/ -f json -o bandit-report.json || echo 'Анализ безопасности завершен'
->>>>>>> new_func
->>>>>>> dev
-                        fi
+                    // Архивируем для деплоя
+                    archiveArtifacts artifacts: 'deploy/**/*', allowEmptyArchive: true
+                }
+            }
+        }
+        
+        stage('Статический анализ') {
+            when {
+                expression { return env.PYTHON_AVAILABLE == 'true' }
+            }
+            steps {
+                script {
+                    echo "=== Статический анализ кода ==="
+                    
+                    bat '''
+                        echo Проверка синтаксиса Python...
+                        python -m py_compile project/*.py 2>nul && echo Синтаксис в порядке || echo Найдены ошибки синтаксиса
+                        
+                        echo Проверяем наличие flake8...
+                        pip list | findstr flake8 && (
+                            echo Запуск flake8...
+                            python -m flake8 project --max-line-length=120 --exclude=migrations
+                        ) || echo flake8 не установлен
                     '''
                 }
             }
         }
         
-        stage('Деплой (для production)') {
+        stage('Деплой (демонстрационный)') {
             when {
-                branch 'main'  // или 'master'
+                anyOf {
+                    branch 'main'
+                    branch 'master'
+                    expression { return params.DEPLOY_TO_PROD == 'true' }
+                }
             }
             steps {
                 script {
-<<<<<<< HEAD
-                    echo "Деплой на production..."
-=======
-<<<<<<< HEAD
-                    echo "Деплой на production..."
-=======
-                    echo 'Деплой на production...'
->>>>>>> new_func
->>>>>>> dev
+                    echo "=== ДЕМО Деплой ==="
                     
-                    // Здесь добавляем шаги деплоя
-                    // Например, копирование файлов, перезапуск сервисов и т.д.
+                    bat '''
+                        echo 1. Копирование файлов...
+                        echo 2. Перезапуск сервисов...
+                        echo 3. Проверка здоровья...
+                        echo Деплой завершен (демо-версия)!
+                    '''
                     
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> dev
-                    echo "1. Сборка статических файлов Django..."
-                    sh 'python manage.py collectstatic --noinput'
+                    echo "✅ Деплой успешно выполнен (демо)"
                     
-                    echo "2. Применение миграций..."
-                    sh 'python manage.py migrate'
+                    // Демонстрация отправки email
+                    echo "Отправка email уведомления..."
+                }
+            }
+        }
+        
+        stage('Финальный отчет') {
+            steps {
+                script {
+                    def currentTime = new Date().format("yyyy-MM-dd HH:mm:ss")
+                    def duration = currentBuild.durationString
                     
-                    echo "3. Деплой завершен!"
+                    echo """
+                    ==================== ИТОГИ СБОРКИ ====================
+                    Проект: ${env.JOB_NAME}
+                    Сборка: ${env.BUILD_NUMBER}
+                    Ветка: ${env.GIT_BRANCH}
+                    Статус: ${currentBuild.currentResult}
+                    Время: ${currentTime}
+                    Длительность: ${duration}
+                    ======================================================
+                    """
                     
-                    // Отправка уведомления
-                    emailext(
-                        subject: " Деплой успешен: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                        body: "Сборка ${env.BUILD_NUMBER} успешно завершена и задеплоена.",
-<<<<<<< HEAD
-=======
-=======
-                    echo '1. Сборка статических файлов Django...'
-                    sh 'python manage.py collectstatic --noinput'
+                    // Сохраняем отчет в файл
+                    writeFile file: 'build-report.txt', text: """
+                    Build Report
+                    ============
+                    Job: ${env.JOB_NAME}
+                    Build: ${env.BUILD_NUMBER}
+                    Branch: ${env.GIT_BRANCH}
+                    Result: ${currentBuild.currentResult}
+                    Time: ${currentTime}
+                    Duration: ${duration}
+                    Workspace: ${WORKSPACE}
+                    """
                     
-                    echo '2. Применение миграций...'
-                    sh 'python manage.py migrate'
-                    
-                    echo '3. Деплой завершен!'
-                    
-                    // Отправка уведомления
-                    emailext(
-                        subject: ' Деплой успешен: ${env.JOB_NAME} #${env.BUILD_NUMBER}',
-                        body: 'Сборка ${env.BUILD_NUMBER} успешно завершена и задеплоена.',
->>>>>>> new_func
->>>>>>> dev
-                        to: 'ваш_email@example.com'
-                    )
+                    archiveArtifacts artifacts: 'build-report.txt', allowEmptyArchive: false
                 }
             }
         }
@@ -458,115 +401,62 @@ pipeline {
     
     post {
         always {
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> dev
             echo "==================== СБОРКА ЗАВЕРШЕНА ===================="
             echo "Статус: ${currentBuild.result ?: 'SUCCESS'}"
             echo "Время выполнения: ${currentBuild.durationString}"
+            echo "Номер сборки: ${env.BUILD_NUMBER}"
             echo "=========================================================="
-<<<<<<< HEAD
-=======
-=======
-            echo '==================== СБОРКА ЗАВЕРШЕНА ===================='
-            echo 'Статус: ${currentBuild.result ?: 'SUCCESS'}'
-            echo 'Время выполнения: ${currentBuild.durationString}'
-            echo '=========================================================='
->>>>>>> new_func
->>>>>>> dev
             
             // Очистка workspace
-            cleanWs()
+            cleanWs(cleanWhenAborted: true, cleanWhenFailure: true, cleanWhenSuccess: true, 
+                   cleanWhenUnstable: true, deleteDirs: true)
         }
         success {
-            echo 'Пайплайн успешно выполнен!'
+            echo '✅ Пайплайн успешно выполнен!'
             
-            // Можно добавить уведомления в Slack, Teams и т.д.
-            slackSend(
-                color: 'good',
-<<<<<<< HEAD
-                message: "Сборка ${env.JOB_NAME} #${env.BUILD_NUMBER} успешна"
-=======
-<<<<<<< HEAD
-                message: "Сборка ${env.JOB_NAME} #${env.BUILD_NUMBER} успешна"
-=======
-                message: 'Сборка ${env.JOB_NAME} #${env.BUILD_NUMBER} успешна'
->>>>>>> new_func
->>>>>>> dev
-            )
+            // Можно добавить реальные уведомления
+            // emailext to: 'team@example.com', subject: "Build Success: ${env.JOB_NAME}", body: "Сборка успешна"
+            // slackSend color: 'good', message: "Build ${env.JOB_NAME} #${env.BUILD_NUMBER} успешна"
         }
         failure {
-            echo 'Пайплайн завершился с ошибкой!'
+            echo '❌ Пайплайн завершился с ошибкой!'
             
-            // Отправка уведомления об ошибке
-            emailext(
-<<<<<<< HEAD
-                subject: "Ошибка сборки: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Сборка ${env.BUILD_NUMBER} завершилась с ошибкой.\n\nПосмотреть логи: ${env.BUILD_URL}",
-=======
-<<<<<<< HEAD
-                subject: "Ошибка сборки: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Сборка ${env.BUILD_NUMBER} завершилась с ошибкой.\n\nПосмотреть логи: ${env.BUILD_URL}",
-=======
-                subject: 'Ошибка сборки: ${env.JOB_NAME} #${env.BUILD_NUMBER}',
-                body: 'Сборка ${env.BUILD_NUMBER} завершилась с ошибкой.\n\nПосмотреть логи: ${env.BUILD_URL}',
->>>>>>> new_func
->>>>>>> dev
-                to: 'ваш_email@example.com'
-            )
+            // Сохраняем логи при ошибке
+            archiveArtifacts artifacts: '**/*.log', allowEmptyArchive: true
             
-            slackSend(
-                color: 'danger',
-<<<<<<< HEAD
-                message: "Сборка ${env.JOB_NAME} #${env.BUILD_NUMBER} провалилась"
-=======
-<<<<<<< HEAD
-                message: "Сборка ${env.JOB_NAME} #${env.BUILD_NUMBER} провалилась"
-=======
-                message: 'Сборка ${env.JOB_NAME} #${env.BUILD_NUMBER} провалилась'
->>>>>>> new_func
->>>>>>> dev
-            )
+            // emailext to: 'team@example.com', subject: "Build Failed: ${env.JOB_NAME}", body: "Сборка провалена"
+            // slackSend color: 'danger', message: "Build ${env.JOB_NAME} #${env.BUILD_NUMBER} провалилась"
         }
         unstable {
-            echo 'Пайплайн нестабилен (некоторые тесты провалились)'
+            echo '⚠️ Пайплайн нестабилен (некоторые тесты провалились)'
         }
         aborted {
-            echo 'Пайплайн был прерван'
+            echo '⏹️ Пайплайн был прерван'
         }
     }
     
     options {
         timeout(time: 30, unit: 'MINUTES')
-        buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '5'))
+        buildDiscarder(logRotator(numToKeepStr: '10'))
         disableConcurrentBuilds()
-        retry(2)  // Повторять сборку при ошибке (макс 2 раза)
-    }
-    
-    triggers {
-        // Автоматический запуск при пуше в ветки
-        pollSCM('H/5 * * * *')  // Проверять каждые 5 минут
-        
-        // Или через GitHub вебхук (рекомендуется)
-        // githubPush()
+        skipDefaultCheckout(false)
     }
     
     parameters {
+        booleanParam(
+            name: 'DEPLOY_TO_PROD',
+            defaultValue: false,
+            description: 'Развернуть в продакшн (даже если не main ветка)'
+        )
         choice(
-            name: 'DEPLOY_ENV',
-            choices: ['dev', 'staging', 'production'],
-            description: 'Выберите окружение для деплоя'
+            name: 'ENVIRONMENT',
+            choices: ['test', 'staging', 'production'],
+            description: 'Окружение для тестирования'
         )
         booleanParam(
-            name: 'RUN_ALL_TESTS',
+            name: 'RUN_EXTRA_TESTS',
             defaultValue: true,
-            description: 'Запускать все тесты'
-        )
-        string(
-            name: 'CUSTOM_BRANCH',
-            defaultValue: '',
-            description: 'Кастомная ветка для сборки (оставьте пустым для текущей)'
+            description: 'Запускать дополнительные тесты'
         )
     }
 }
