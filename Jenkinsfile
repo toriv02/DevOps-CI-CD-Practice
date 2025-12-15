@@ -13,7 +13,11 @@ pipeline {
             steps {
                 checkout scm
                 cleanWs()
+<<<<<<< HEAD
                 echo "Рабочая директория: ${WORKSPACE}"
+=======
+                echo 'Рабочая директория: ${WORKSPACE}'
+>>>>>>> new_func
                 sh 'ls -la'
             }
         }
@@ -23,11 +27,19 @@ pipeline {
                 script {
                     // Получаем список измененных файлов
                     def changes = sh(
+<<<<<<< HEAD
                         script: 'git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ""',
                         returnStdout: true
                     ).trim()
                     
                     echo "Измененные файлы: ${changes}"
+=======
+                        script: 'git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ''',
+                        returnStdout: true
+                    ).trim()
+                    
+                    echo 'Измененные файлы: ${changes}'
+>>>>>>> new_func
                     
                     env.HAS_CHANGES = changes ? 'true' : 'false'
                     
@@ -45,8 +57,13 @@ pipeline {
                         env.FRONTEND_CHANGED = 'false'
                     }
                     
+<<<<<<< HEAD
                     echo "Backend изменен: ${env.BACKEND_CHANGED}"
                     echo "Frontend изменен: ${env.FRONTEND_CHANGED}"
+=======
+                    echo 'Backend изменен: ${env.BACKEND_CHANGED}'
+                    echo 'Frontend изменен: ${env.FRONTEND_CHANGED}'
+>>>>>>> new_func
                 }
             }
         }
@@ -57,7 +74,11 @@ pipeline {
             }
             steps {
                 script {
+<<<<<<< HEAD
                     echo "Настройка Python ${PYTHON_VERSION}"
+=======
+                    echo 'Настройка Python ${PYTHON_VERSION}'
+>>>>>>> new_func
                     
                     // Проверяем Python
                     sh 'python --version'
@@ -65,11 +86,19 @@ pipeline {
                     
                     // Устанавливаем зависимости (если есть requirements.txt)
                     sh '''
+<<<<<<< HEAD
                         if [ -f "requirements.txt" ]; then
                             echo "Установка зависимостей из requirements.txt..."
                             pip install -r requirements.txt
                         else
                             echo "requirements.txt не найден, устанавливаем базовые зависимости..."
+=======
+                        if [ -f 'requirements.txt' ]; then
+                            echo 'Установка зависимостей из requirements.txt...'
+                            pip install -r requirements.txt
+                        else
+                            echo 'requirements.txt не найден, устанавливаем базовые зависимости...'
+>>>>>>> new_func
                             pip install django djangorestframework
                         fi
                     '''
@@ -87,7 +116,11 @@ pipeline {
             steps {
                 script {
                     sh '''
+<<<<<<< HEAD
                         echo "Проверка миграций Django..."
+=======
+                        echo 'Проверка миграций Django...'
+>>>>>>> new_func
                         python manage.py makemigrations --check --dry-run
                     '''
                 }
@@ -100,6 +133,7 @@ pipeline {
             }
             steps {
                 script {
+<<<<<<< HEAD
                     echo "Запуск тестов Django..."
                     
                     sh '''
@@ -108,6 +142,16 @@ pipeline {
                         python manage.py migrate --run-syncdb
                         
                         echo "Запуск тестов..."
+=======
+                    echo 'Запуск тестов Django...'
+                    
+                    sh '''
+                        echo 'Создание тестовой базы данных...'
+                        # Если используется SQLite
+                        python manage.py migrate --run-syncdb
+                        
+                        echo 'Запуск тестов...'
+>>>>>>> new_func
                         python manage.py test project.tests --verbosity=2 --noinput
                     '''
                 }
@@ -132,7 +176,11 @@ pipeline {
             }
             steps {
                 script {
+<<<<<<< HEAD
                     echo "Настройка Node.js ${NODE_VERSION}"
+=======
+                    echo 'Настройка Node.js ${NODE_VERSION}'
+>>>>>>> new_func
                     dir(env.CLIENT_DIR) {
                         // Проверяем Node.js
                         sh 'node --version'
@@ -154,9 +202,15 @@ pipeline {
             }
             steps {
                 script {
+<<<<<<< HEAD
                     echo "Запуск тестов Frontend..."
                     dir(env.CLIENT_DIR) {
                         sh 'npm test -- --passWithNoTests || echo "Тесты фронтенда не найдены"'
+=======
+                    echo 'Запуск тестов Frontend...'
+                    dir(env.CLIENT_DIR) {
+                        sh 'npm test -- --passWithNoTests || echo 'Тесты фронтенда не найдены''
+>>>>>>> new_func
                     }
                 }
             }
@@ -171,7 +225,11 @@ pipeline {
             }
             steps {
                 script {
+<<<<<<< HEAD
                     echo "Сборка Frontend для production..."
+=======
+                    echo 'Сборка Frontend для production...'
+>>>>>>> new_func
                     dir(env.CLIENT_DIR) {
                         sh 'npm run build'
                     }
@@ -188,19 +246,33 @@ pipeline {
             }
             steps {
                 script {
+<<<<<<< HEAD
                     echo "Проверка качества кода..."
                     
                     // Проверка синтаксиса Python
                     sh '''
                         echo "Проверка синтаксиса Python..."
                         python -m py_compile project/*.py 2>/dev/null || echo "Ошибки синтаксиса"
+=======
+                    echo 'Проверка качества кода...'
+                    
+                    // Проверка синтаксиса Python
+                    sh '''
+                        echo 'Проверка синтаксиса Python...'
+                        python -m py_compile project/*.py 2>/dev/null || echo 'Ошибки синтаксиса'
+>>>>>>> new_func
                     '''
                     
                     // Проверка стиля кода (если установлен flake8)
                     sh '''
                         if command -v flake8 &> /dev/null; then
+<<<<<<< HEAD
                             echo "Проверка стиля кода с flake8..."
                             flake8 project/ --max-line-length=120 --exclude=migrations || echo "Найдены стилевые ошибки"
+=======
+                            echo 'Проверка стиля кода с flake8...'
+                            flake8 project/ --max-line-length=120 --exclude=migrations || echo 'Найдены стилевые ошибки'
+>>>>>>> new_func
                         fi
                     '''
                 }
@@ -216,21 +288,35 @@ pipeline {
             }
             steps {
                 script {
+<<<<<<< HEAD
                     echo "Проверка безопасности..."
+=======
+                    echo 'Проверка безопасности...'
+>>>>>>> new_func
                     
                     // Проверка уязвимостей в зависимостях
                     sh '''
                         if command -v safety &> /dev/null; then
+<<<<<<< HEAD
                             echo "Проверка безопасности зависимостей..."
                             safety check --full-report || echo "Найдены уязвимости"
+=======
+                            echo 'Проверка безопасности зависимостей...'
+                            safety check --full-report || echo 'Найдены уязвимости'
+>>>>>>> new_func
                         fi
                     '''
                     
                     // Проверка статического анализа безопасности
                     sh '''
                         if command -v bandit &> /dev/null; then
+<<<<<<< HEAD
                             echo "Статический анализ безопасности..."
                             bandit -r project/ -f json -o bandit-report.json || echo "Анализ безопасности завершен"
+=======
+                            echo 'Статический анализ безопасности...'
+                            bandit -r project/ -f json -o bandit-report.json || echo 'Анализ безопасности завершен'
+>>>>>>> new_func
                         fi
                     '''
                 }
@@ -243,11 +329,16 @@ pipeline {
             }
             steps {
                 script {
+<<<<<<< HEAD
                     echo "Деплой на production..."
+=======
+                    echo 'Деплой на production...'
+>>>>>>> new_func
                     
                     // Здесь добавляем шаги деплоя
                     // Например, копирование файлов, перезапуск сервисов и т.д.
                     
+<<<<<<< HEAD
                     echo "1. Сборка статических файлов Django..."
                     sh 'python manage.py collectstatic --noinput'
                     
@@ -260,6 +351,20 @@ pipeline {
                     emailext(
                         subject: " Деплой успешен: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                         body: "Сборка ${env.BUILD_NUMBER} успешно завершена и задеплоена.",
+=======
+                    echo '1. Сборка статических файлов Django...'
+                    sh 'python manage.py collectstatic --noinput'
+                    
+                    echo '2. Применение миграций...'
+                    sh 'python manage.py migrate'
+                    
+                    echo '3. Деплой завершен!'
+                    
+                    // Отправка уведомления
+                    emailext(
+                        subject: ' Деплой успешен: ${env.JOB_NAME} #${env.BUILD_NUMBER}',
+                        body: 'Сборка ${env.BUILD_NUMBER} успешно завершена и задеплоена.',
+>>>>>>> new_func
                         to: 'ваш_email@example.com'
                     )
                 }
@@ -269,10 +374,17 @@ pipeline {
     
     post {
         always {
+<<<<<<< HEAD
             echo "==================== СБОРКА ЗАВЕРШЕНА ===================="
             echo "Статус: ${currentBuild.result ?: 'SUCCESS'}"
             echo "Время выполнения: ${currentBuild.durationString}"
             echo "=========================================================="
+=======
+            echo '==================== СБОРКА ЗАВЕРШЕНА ===================='
+            echo 'Статус: ${currentBuild.result ?: 'SUCCESS'}'
+            echo 'Время выполнения: ${currentBuild.durationString}'
+            echo '=========================================================='
+>>>>>>> new_func
             
             // Очистка workspace
             cleanWs()
@@ -283,7 +395,11 @@ pipeline {
             // Можно добавить уведомления в Slack, Teams и т.д.
             slackSend(
                 color: 'good',
+<<<<<<< HEAD
                 message: "Сборка ${env.JOB_NAME} #${env.BUILD_NUMBER} успешна"
+=======
+                message: 'Сборка ${env.JOB_NAME} #${env.BUILD_NUMBER} успешна'
+>>>>>>> new_func
             )
         }
         failure {
@@ -291,14 +407,23 @@ pipeline {
             
             // Отправка уведомления об ошибке
             emailext(
+<<<<<<< HEAD
                 subject: "Ошибка сборки: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                 body: "Сборка ${env.BUILD_NUMBER} завершилась с ошибкой.\n\nПосмотреть логи: ${env.BUILD_URL}",
+=======
+                subject: 'Ошибка сборки: ${env.JOB_NAME} #${env.BUILD_NUMBER}',
+                body: 'Сборка ${env.BUILD_NUMBER} завершилась с ошибкой.\n\nПосмотреть логи: ${env.BUILD_URL}',
+>>>>>>> new_func
                 to: 'ваш_email@example.com'
             )
             
             slackSend(
                 color: 'danger',
+<<<<<<< HEAD
                 message: "Сборка ${env.JOB_NAME} #${env.BUILD_NUMBER} провалилась"
+=======
+                message: 'Сборка ${env.JOB_NAME} #${env.BUILD_NUMBER} провалилась'
+>>>>>>> new_func
             )
         }
         unstable {

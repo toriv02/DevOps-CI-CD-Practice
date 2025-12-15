@@ -40,6 +40,9 @@ const isActive = (routePath) => {
             <li class="nav-item" :class="{ 'active': isActive('/type') }">
               <router-link class="nav-link" to="/type">Тип контента</router-link>
             </li>
+            <li class="nav-item" :class="{ 'active': isActive('/') }">
+              <router-link class="nav-link" to="/">Тестовая кнопка</router-link>
+            </li>
           </ul>
 
 
