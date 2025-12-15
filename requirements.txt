@@ -1,2 +1,9 @@
 django==5.2.6
 djangorestframework==3.16.1
+psycopg2-binary>=2.9  
+python-decouple>=3.8
+django-cors-headers>=4.0
+drf-yasg>=1.21 
+flake8>=6.0  
+bandit>=1.7  
+coverage>=7.0  
