@@ -11,73 +11,70 @@ pipeline {
             steps {
                 checkout scm
                 
-                // Получаем имя текущей ветки
                 script {
                     def branch = bat(
                         script: 'git branch --show-current',
                         returnStdout: true
                     ).trim()
                     env.GIT_BRANCH = branch
-                    echo "Сборка для ветки: ${env.GIT_BRANCH}"
+                    echo "Build for branch: ${env.GIT_BRANCH}"
                 }
             }
         }
         
-        stage('Установка зависимостей Frontend') {
+        stage('Install Frontend Dependencies') {
             steps {
                 dir(env.FRONTEND_DIR) {
                     bat 'npm ci --silent'
-                    echo "Зависимости Frontend установлены"
+                    echo "Frontend dependencies installed"
                 }
             }
         }
         
-        stage('Установка зависимостей Backend') {
+        stage('Install Backend Dependencies') {
             steps {
                 script {
-                    // Проверяем, установлен ли Python
                     try {
                         bat 'python --version'
-                        echo "Python найден"
+                        echo "Python found"
                         env.PYTHON_AVAILABLE = 'true'
                     } catch (Exception e) {
-                        echo "Python не найден, пропускаем установку зависимостей Backend"
+                        echo "Python not found, skipping backend dependencies"
                         env.PYTHON_AVAILABLE = 'false'
                         return
                     }
                     
-                    // Устанавливаем зависимости Python
                     bat '''
                         if exist "requirements.txt" (
-                            echo Устанавливаем зависимости из requirements.txt...
+                            echo Installing dependencies from requirements.txt...
                             pip install -r requirements.txt
                         ) else (
-                            echo requirements.txt не найден
+                            echo requirements.txt not found
                             pip install django djangorestframework
                         )
                     '''
-                    echo "Зависимости Backend установлены"
+                    echo "Backend dependencies installed"
                 }
             }
         }
         
-        stage('Запуск тестов Backend') {
+        stage('Run Backend Tests') {
             when {
                 expression { return env.PYTHON_AVAILABLE == 'true' }
             }
             steps {
                 script {
-                    echo "Запуск тестов Django..."
+                    echo "Running Django tests..."
                     
                     bat '''
                         if exist "manage.py" (
-                            echo Проверка Django проекта...
+                            echo Checking Django project...
                             python manage.py check
                             
-                            echo Запуск тестов из tests.py...
+                            echo Running tests from tests.py...
                             python manage.py test project.tests --verbosity=2
                         ) else (
-                            echo manage.py не найден
+                            echo manage.py not found
                             exit 1
                         )
                     '''
@@ -85,18 +82,17 @@ pipeline {
             }
             post {
                 success {
-                    echo '✅ Тесты Django успешно пройдены!'
+                    echo 'Django tests passed successfully'
                 }
                 failure {
-                    echo '❌ Тесты Django провалились!'
+                    echo 'Django tests failed'
                 }
             }
         }
         
-        stage('Запуск тестов Frontend') {
+        stage('Run Frontend Tests') {
             when {
                 expression {
-                    // Запускаем тесты фронтенда только если не в main/master
                     def branch = env.GIT_BRANCH ?: ''
                     return branch != 'main' && branch != 'master'
                 }
@@ -104,7 +100,6 @@ pipeline {
             steps {
                 dir(env.FRONTEND_DIR) {
                     script {
-                        // Проверяем, есть ли тесты в package.json
                         def hasTests = bat(
                             script: 'npm run 2>&1 | findstr /i "test"',
                             returnStdout: true,
@@ -112,17 +107,17 @@ pipeline {
                         )
                         
                         if (hasTests == 0) {
-                            echo "Запуск тестов Frontend..."
+                            echo "Running Frontend tests..."
                             bat 'npm test -- --passWithNoTests'
                         } else {
-                            echo "Тесты Frontend не настроены в package.json"
+                            echo "Frontend tests not configured in package.json"
                         }
                     }
                 }
             }
         }
         
-        stage('Сборка для Production') {
+        stage('Build for Production') {
             when {
                 anyOf {
                     branch 'main'
@@ -131,37 +126,35 @@ pipeline {
             }
             steps {
                 script {
-                    echo "=== Сборка для Production ==="
+                    echo "Building for Production"
                     
-                    // Сборка Frontend
                     dir(env.FRONTEND_DIR) {
-                        bat 'npm run build 2>&1 || echo "Сборка Frontend завершена"'
-                        echo "Frontend собран"
+                        bat 'npm run build 2>&1 || echo "Frontend build completed"'
+                        echo "Frontend built"
                     }
                     
-                    // Сборка Backend (если Python доступен)
                     if (env.PYTHON_AVAILABLE == 'true') {
                         bat '''
                             if exist "manage.py" (
-                                echo Сборка статических файлов Django...
+                                echo Collecting Django static files...
                                 python manage.py collectstatic --noinput
                                 
-                                echo Создание архива...
+                                echo Creating archive...
                                 mkdir dist 2>nul
                                 xcopy project dist\\project /E /I /Y 2>nul
                                 copy manage.py dist\\ 2>nul
                                 copy requirements.txt dist\\ 2>nul
-                                echo Сборка Backend завершена
+                                echo Backend build completed
                             )
                         '''
                     }
                     
-                    echo "✅ Сборка для Production завершена"
+                    echo "Production build completed"
                 }
             }
         }
         
-        stage('Демо-деплой') {
+        stage('Demo Deploy') {
             when {
                 anyOf {
                     branch 'main'
@@ -169,29 +162,27 @@ pipeline {
                 }
             }
             steps {
-                echo "=== Демонстрация деплоя ==="
-                bat 'echo Деплой успешно выполнен (демо-версия)'
-                echo "Деплой завершен"
+                echo "Demo deployment"
+                bat 'echo Deployment completed successfully (demo)'
+                echo "Deployment completed"
             }
         }
     }
     
     post {
         always {
-            echo "==================== СБОРКА ЗАВЕРШЕНА ===================="
-            echo "Статус: ${currentBuild.result ?: 'SUCCESS'}"
-            echo "Время выполнения: ${currentBuild.durationString}"
-            echo "Ветка: ${env.GIT_BRANCH ?: 'не определена'}"
-            echo "=========================================================="
+            echo "Build finished"
+            echo "Status: ${currentBuild.result ?: 'SUCCESS'}"
+            echo "Duration: ${currentBuild.durationString}"
+            echo "Branch: ${env.GIT_BRANCH ?: 'not defined'}"
             
-            // Очистка workspace
             cleanWs()
         }
         success {
-            echo '✅ Пайплайн успешно выполнен!'
+            echo 'Pipeline completed successfully'
         }
         failure {
-            echo '❌ Пайплайн завершился с ошибкой!'
+            echo 'Pipeline failed'
         }
     }
 }
