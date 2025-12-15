@@ -115,11 +115,11 @@ pipeline {
             }
             post {
                 success {
-                    echo '✅ Тесты Django успешно пройдены!'
+                    echo 'Тесты Django успешно пройдены!'
                     archiveArtifacts artifacts: '**/test-reports/*.xml', allowEmptyArchive: true
                 }
                 failure {
-                    echo '❌ Тесты Django провалились!'
+                    echo 'Тесты Django провалились!'
                     // Сохраняем логи при ошибке
                     sh 'python manage.py test project.tests --verbosity=3 2>&1 || true'
                     error 'Тесты не пройдены'
