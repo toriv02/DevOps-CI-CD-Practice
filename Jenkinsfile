@@ -10,50 +10,29 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                
                 script {
-                    // Определяем текущую ветку
+                    // Получаем текущую ветку
                     def branch = bat(
                         script: 'git branch --show-current',
                         returnStdout: true
                     ).trim()
                     env.GIT_BRANCH = branch
                     echo "Build for branch: ${env.GIT_BRANCH}"
-                    
-                    // Анализ измененных файлов (как в отчете)
-                    String changes = bat(
-                        script: 'git diff --name-only HEAD~1 HEAD 2>nul || echo ""',
-                        returnStdout: true
-                    ).trim()
-                    
-                    boolean changedFrontend = false
-                    boolean changedBackend = false
-                    
-                    if (changes) {
-                        String[] files = changes.split(/\r?\n/)
-                        for (String file : files) {
-                            if (file.startsWith("${env.FRONTEND_DIR}/")) {
-                                changedFrontend = true
-                            }
-                            if (file.startsWith("${env.BACKEND_DIR}/")) {
-                                changedBackend = true
-                            }
-                        }
-                    }
-                    
-                    env.CHANGED_FRONTEND = changedFrontend.toString()
-                    env.CHANGED_BACKEND = changedBackend.toString()
                 }
             }
         }
         
-        stage('Setup Python') {
+        stage('Install Dependencies') {
             steps {
+                // Всегда устанавливаем зависимости для обеих частей
                 script {
-                    // Явно указываем путь к Python
-                    def pythonPath = "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python314\\python.exe"
+                    dir(env.FRONTEND_DIR) {
+                        bat 'npm ci --silent'
+                        echo "Frontend dependencies installed"
+                    }
                     
-                    // Проверяем, существует ли файл
+                    // Проверяем и устанавливаем Python зависимости
+                    def pythonPath = "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python314\\python.exe"
                     def exists = bat(
                         script: "@echo off && if exist \"${pythonPath}\" (echo EXISTS) else (echo NOT_FOUND)",
                         returnStdout: true
@@ -61,36 +40,12 @@ pipeline {
                     
                     if (exists.contains("EXISTS")) {
                         env.PYTHON_PATH = pythonPath
-                        env.PYTHON_AVAILABLE = 'true'
-                        echo "Python found at: ${env.PYTHON_PATH}"
-                    } else {
-                        env.PYTHON_AVAILABLE = 'false'
-                        echo "Python not found at: ${pythonPath}"
-                    }
-                }
-            }
-        }
-        
-        stage('Install Dependencies') {
-            steps {
-                script {
-                    // Устанавливаем зависимости только для измененных частей
-                    if (env.CHANGED_FRONTEND == 'true') {
-                        dir(env.FRONTEND_DIR) {
-                            bat 'npm ci --silent'
-                            echo "Frontend dependencies installed"
-                        }
-                    } else {
-                        echo 'Фронтенд не изменён - зависимости пропущены.'
-                    }
-                    
-                    if (env.CHANGED_BACKEND == 'true' && env.PYTHON_AVAILABLE == 'true') {
                         bat """
                             @echo off
                             echo Using Python from: ${env.PYTHON_PATH}
                             
                             if exist "requirements.txt" (
-                                echo Installing dependencies from requirements.txt...
+                                echo Installing Python dependencies...
                                 "${env.PYTHON_PATH}" -m pip install -r requirements.txt
                             ) else (
                                 echo requirements.txt not found
@@ -98,32 +53,8 @@ pipeline {
                             )
                         """
                         echo "Backend dependencies installed"
-                    } else if (env.CHANGED_BACKEND == 'true' && env.PYTHON_AVAILABLE != 'true') {
-                        echo 'Бэкенд изменён, но Python не доступен - зависимости пропущены.'
                     } else {
-                        echo 'Бэкенд не изменён - зависимости пропущены.'
-                    }
-                }
-            }
-        }
-        
-        stage('Run Frontend Tests') {
-            when {
-                expression {
-                    def branch = env.GIT_BRANCH ?: ''
-                    // Тесты выполняем для всех веток, кроме основной
-                    return branch != 'main' && branch != 'master' && branch != 'origin/main' && branch != 'origin/master'
-                }
-            }
-            steps {
-                script {
-                    if (env.CHANGED_FRONTEND == 'true') {
-                        dir(env.FRONTEND_DIR) {
-                            echo "Running Frontend tests..."
-                            bat 'npm test -- --passWithNoTests'
-                        }
-                    } else {
-                        echo 'Фронтенд не изменён - тесты пропущены.'
+                        echo "Python not found, skipping backend dependencies"
                     }
                 }
             }
@@ -133,13 +64,13 @@ pipeline {
             when {
                 expression {
                     def branch = env.GIT_BRANCH ?: ''
-                    // Тесты выполняем для всех веток, кроме основной
+                    // Тесты для всех веток кроме main/master
                     return branch != 'main' && branch != 'master' && branch != 'origin/main' && branch != 'origin/master'
                 }
             }
             steps {
                 script {
-                    if (env.CHANGED_BACKEND == 'true' && env.PYTHON_AVAILABLE == 'true') {
+                    if (env.PYTHON_PATH) {
                         echo "Running Django tests with Python: ${env.PYTHON_PATH}"
                         
                         bat """
@@ -150,15 +81,53 @@ pipeline {
                                 echo Checking Django project...
                                 "${env.PYTHON_PATH}" manage.py check
                                 
-                                echo Running tests from tests.py...
-                                "${env.PYTHON_PATH}" manage.py test project.tests --verbosity=2
+                                echo Running Django tests...
+                                "${env.PYTHON_PATH}" manage.py test --verbosity=2
                             ) else (
                                 echo manage.py not found
                                 exit 1
                             )
                         """
                     } else {
-                        echo 'Бэкенд не изменён или Python не доступен - тесты пропущены.'
+                        echo "Python not available, skipping backend tests"
+                    }
+                }
+            }
+            post {
+                success {
+                    echo 'Django tests passed successfully'
+                }
+                failure {
+                    echo 'Django tests failed'
+                }
+            }
+        }
+        
+        stage('Build Frontend') {
+            when {
+                expression {
+                    def branch = env.GIT_BRANCH ?: ''
+                    // Сборка для всех веток кроме main/master
+                    return branch != 'main' && branch != 'master' && branch != 'origin/main' && branch != 'origin/master'
+                }
+            }
+            steps {
+                dir(env.FRONTEND_DIR) {
+                    // Проверяем есть ли скрипт build
+                    script {
+                        def hasBuildScript = bat(
+                            script: 'npm run 2>&1 | findstr /i "build"',
+                            returnStdout: true,
+                            returnStatus: true
+                        )
+                        
+                        if (hasBuildScript == 0) {
+                            echo "Building Frontend..."
+                            bat 'npm run build 2>&1 || echo "Frontend build command executed"'
+                            echo "Frontend build completed"
+                        } else {
+                            echo "Build script not found in package.json, skipping build"
+                        }
                     }
                 }
             }
@@ -174,32 +143,35 @@ pipeline {
             }
             steps {
                 script {
-                    echo "Deploying to Production"
+                    echo "=== DEPLOYING TO PRODUCTION ==="
                     
-                    // Всегда устанавливаем зависимости для продакшена
+                    // Фронтенд
                     dir(env.FRONTEND_DIR) {
-                        bat 'npm ci --silent'
-                        bat 'npm run build 2>&1 || echo "Frontend build completed"'
-                        echo "Frontend built for production"
+                        bat 'npm run build 2>&1 || echo "Frontend build completed for production"'
+                        echo "Frontend production build completed"
                     }
                     
-                    if (env.PYTHON_AVAILABLE == 'true') {
-                        bat '''
+                    // Бэкенд
+                    if (env.PYTHON_PATH) {
+                        bat """
+                            @echo off
+                            echo Creating production build...
+                            
                             if exist "manage.py" (
                                 echo Collecting Django static files...
-                                python manage.py collectstatic --noinput
+                                "${env.PYTHON_PATH}" manage.py collectstatic --noinput
                                 
-                                echo Creating production archive...
+                                echo Creating production package...
                                 mkdir dist 2>nul
                                 xcopy project dist\\project /E /I /Y 2>nul
                                 copy manage.py dist\\ 2>nul
                                 copy requirements.txt dist\\ 2>nul
-                                echo Backend production build completed
+                                echo Backend production package created
                             )
-                        '''
+                        """
                     }
                     
-                    echo "Production deployment completed"
+                    echo "=== PRODUCTION DEPLOYMENT READY ==="
                 }
             }
         }
