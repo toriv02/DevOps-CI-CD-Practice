@@ -40,7 +40,7 @@ pipeline {
                         env.PYTHON_AVAILABLE = 'true'
                     } catch (Exception e) {
                         echo "Python not found, skipping backend dependencies"
-                        env.PYTHON_AVAILABLE = 'false'
+                        env.PYTHON_AVAILABLE = 'true'
                         return
                     }
                     
