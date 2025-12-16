@@ -60,41 +60,6 @@ pipeline {
             }
         }
         
-        stage('Run Frontend Tests (Stub)') {
-            when {
-                expression {
-                    def branch = env.GIT_BRANCH ?: ''
-                    // Тесты для всех веток кроме main/master
-                    return branch != 'main' && branch != 'master' && branch != 'origin/main' && branch != 'origin/master'
-                }
-            }
-            steps {
-                script {
-                    echo "========== FRONTEND TESTS STUB =========="
-                    echo "Running simulated frontend tests..."
-                    echo "Test 1: Проверка компонента App... [PASSED]"
-                    echo "Test 2: Проверка рендеринга анкеты... [PASSED]"
-                    echo "Test 3: Проверка валидации полей... [PASSED]"
-                    echo "Test 4: Проверка обработки событий... [PASSED]"
-                    echo "Test 5: Проверка маршрутизации... [PASSED]"
-                    echo " "
-                    echo "Все тесты успешно пройдены!"
-                    echo "5 passed, 0 failed, 0 skipped"
-                    echo "Test Suites: 1 passed, 1 total"
-                    echo "Tests: 5 passed, 5 total"
-                    echo "========== TESTS COMPLETED =========="
-                    
-                    // Можно добавить задержку для имитации выполнения тестов
-                    bat 'timeout /t 2 /nobreak > nul'
-                }
-            }
-            post {
-                always {
-                    echo "Frontend tests stub executed"
-                }
-            }
-        }
-        
         stage('Run Backend Tests') {
             when {
                 expression {
@@ -125,64 +90,38 @@ pipeline {
                         """
                     } else {
                         echo "Python not available, skipping backend tests"
-                        // Заглушка для backend тестов, если Python не найден
-                        echo "========== BACKEND TESTS STUB =========="
-                        echo "Test 1: Проверка моделей... [SKIPPED - Python not available]"
-                        echo "Test 2: Проверка API endpoints... [SKIPPED - Python not available]"
-                        echo "Test 3: Проверка валидации... [SKIPPED - Python not available]"
-                        echo " "
-                        echo "Tests skipped due to missing Python"
-                        echo "========== TESTS COMPLETED =========="
                     }
                 }
             }
             post {
                 success {
-                    echo 'Backend tests passed successfully'
+                    echo 'Django tests passed successfully'
                 }
                 failure {
-                    echo 'Backend tests failed'
+                    echo 'Django tests failed'
                 }
             }
         }
         
-        stage('Build for Non-Production') {
-            when {
-                expression {
-                    def branch = env.GIT_BRANCH ?: ''
-                    // Сборка для всех веток кроме main/master
-                    return branch != 'main' && branch != 'master' && branch != 'origin/main' && branch != 'origin/master'
-                }
-            }
+        stage('Build Frontend') {
             steps {
-                script {
-                    echo "Building for non-production environment (branch: ${env.GIT_BRANCH})"
-                    
-                    dir(env.FRONTEND_DIR) {
-                        // Проверяем есть ли скрипт build
-                        script {
-                            def hasBuildScript = bat(
-                                script: 'npm run 2>&1 | findstr /i "build"',
-                                returnStdout: true,
-                                returnStatus: true
-                            )
-                            
-                            if (hasBuildScript == 0) {
-                                echo "Building Frontend..."
-                                bat 'npm run build 2>&1 || echo "Frontend build command executed"'
-                                echo "Frontend build completed"
-                            } else {
-                                echo "Build script not found in package.json, using stub"
-                                bat 'echo "Frontend build would happen here..."'
-                            }
+                dir(env.FRONTEND_DIR) {
+                    // Проверяем есть ли скрипт build
+                    script {
+                        def hasBuildScript = bat(
+                            script: 'npm run 2>&1 | findstr /i "build"',
+                            returnStdout: true,
+                            returnStatus: true
+                        )
+                        
+                        if (hasBuildScript == 0) {
+                            echo "Building Frontend..."
+                            bat 'npm run build 2>&1 || echo "Frontend build command executed"'
+                            echo "Frontend build completed"
+                        } else {
+                            echo "Build script not found in package.json, skipping build"
                         }
                     }
-                    
-                    // Бэкенд сборка (заглушка)
-                    echo "Backend build stub..."
-                    bat 'echo "Backend build would happen here..."'
-                    
-                    echo "Non-production build completed successfully"
                 }
             }
         }
@@ -191,30 +130,27 @@ pipeline {
             when {
                 expression {
                     def branch = env.GIT_BRANCH ?: ''
-                    // Деплой ТОЛЬКО для основной ветки
                     return branch == 'main' || branch == 'master' || branch == 'origin/main' || branch == 'origin/master'
                 }
             }
             steps {
                 script {
-                    echo "========== DEPLOYING TO PRODUCTION =========="
-                    echo "Production branch detected: ${env.GIT_BRANCH}"
+                    echo "=== DEPLOYING TO PRODUCTION ==="
                     
-                    // Фронтенд продакшн сборка
+                    // Фронтенд
                     dir(env.FRONTEND_DIR) {
-                        echo "Building Frontend for production..."
-                        bat 'npm run build 2>&1 || echo "Frontend production build command executed"'
+                        bat 'npm run build 2>&1 || echo "Frontend build completed for production"'
                         echo "Frontend production build completed"
                     }
                     
-                    // Бэкенд продакшн сборка
+                    // Бэкенд
                     if (env.PYTHON_PATH) {
                         bat """
                             @echo off
-                            echo Creating Django production build...
+                            echo Creating production build...
                             
                             if exist "manage.py" (
-                                echo Collecting static files for production...
+                                echo Collecting Django static files...
                                 "${env.PYTHON_PATH}" manage.py collectstatic --noinput
                                 
                                 echo Creating production package...
@@ -223,27 +159,11 @@ pipeline {
                                 copy manage.py dist\\ 2>nul
                                 copy requirements.txt dist\\ 2>nul
                                 echo Backend production package created
-                            ) else (
-                                echo "manage.py not found, creating stub..."
-                                echo "Production backend package would be created here" > production_stub.txt
                             )
                         """
-                    } else {
-                        echo "Python not available, using production stub"
-                        bat 'echo "Production backend deployment would happen here..."'
                     }
                     
-                    // Имитация деплоя
-                    echo " "
-                    echo "Production deployment simulation:"
-                    echo "1. Uploading frontend build to CDN... [DONE]"
-                    echo "2. Deploying backend to production server... [DONE]"
-                    echo "3. Running database migrations... [DONE]"
-                    echo "4. Restarting services... [DONE]"
-                    echo "5. Health check... [PASSED]"
-                    echo " "
-                    echo "========== PRODUCTION DEPLOYMENT COMPLETED =========="
-                    echo "Application is now live in production!"
+                    echo "=== PRODUCTION DEPLOYMENT READY ==="
                 }
             }
         }
@@ -251,14 +171,10 @@ pipeline {
     
     post {
         always {
-            echo " "
-            echo "==================== BUILD SUMMARY ===================="
             echo "Build finished"
             echo "Status: ${currentBuild.result ?: 'SUCCESS'}"
             echo "Duration: ${currentBuild.durationString}"
             echo "Branch: ${env.GIT_BRANCH ?: 'not defined'}"
-            echo "======================================================"
-            echo " "
             
             cleanWs()
         }
