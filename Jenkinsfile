@@ -18,10 +18,6 @@ pipeline {
                     ).trim()
                     env.GIT_BRANCH = branch
                     echo "Build for branch: ${env.GIT_BRANCH}"
-                    
-                    // Проверяем, является ли ветка main
-                    env.IS_MAIN_BRANCH = (env.GIT_BRANCH == 'main' || env.GIT_BRANCH == 'master') ? 'true' : 'false'
-                    echo "Is main branch: ${env.IS_MAIN_BRANCH}"
                 }
             }
         }
@@ -35,80 +31,54 @@ pipeline {
             }
         }
         
-        stage('Setup Python') {
+        stage('Install Backend Dependencies') {
             steps {
                 script {
-                    // Явно указываем путь к Python
-                    def pythonPath = "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python314\\python.exe"
-                    
-                    // Проверяем, существует ли файл
-                    def exists = bat(
-                        script: "@echo off && if exist \"${pythonPath}\" (echo EXISTS) else (echo NOT_FOUND)",
-                        returnStdout: true
-                    ).trim()
-                    
-                    if (exists.contains("EXISTS")) {
-                        env.PYTHON_PATH = pythonPath
+                    try {
+                        bat 'python --version'
+                        echo "Python found"
                         env.PYTHON_AVAILABLE = 'true'
-                        echo "Python found at: ${env.PYTHON_PATH}"
-                        
-                        // Проверяем версию
-                        bat "\"${env.PYTHON_PATH}\" --version"
-                    } else {
+                    } catch (Exception e) {
+                        echo "Python not found, skipping backend dependencies"
                         env.PYTHON_AVAILABLE = 'false'
-                        echo "Python not found at: ${pythonPath}"
+                        return
                     }
+                    
+                    bat '''
+                        if exist "requirements.txt" (
+                            echo Installing dependencies from requirements.txt...
+                            pip install -r requirements.txt
+                        ) else (
+                            echo requirements.txt not found
+                            pip install django djangorestframework
+                        )
+                    '''
+                    echo "Backend dependencies installed"
                 }
             }
         }
-
-        stage('Install Backend Dependencies') {
-            when {
-                expression { env.PYTHON_AVAILABLE == 'true' }
-            }
-            steps {
-                bat """
-                    @echo off
-                    echo Using Python from: ${env.PYTHON_PATH}
-                    
-                    if exist "requirements.txt" (
-                        echo Installing dependencies from requirements.txt...
-                        "${env.PYTHON_PATH}" -m pip install -r requirements.txt
-                    ) else (
-                        echo requirements.txt not found
-                        "${env.PYTHON_PATH}" -m pip install django djangorestframework
-                    )
-                """
-                echo "Backend dependencies installed"
-            }
-        }
-
-        // ТЕСТЫ - ТОЛЬКО ДЛЯ НЕ-MAIN ВЕТОК
+        
         stage('Run Backend Tests') {
             when {
-                allOf {
-                    expression { env.PYTHON_AVAILABLE == 'true' }
-                    expression { env.IS_MAIN_BRANCH == 'false' }
-                }
+                expression { return env.PYTHON_AVAILABLE == 'true' }
             }
             steps {
-                echo "Running Django tests with Python: ${env.PYTHON_PATH}"
-                
-                bat """
-                    @echo off
-                    echo Python path: ${env.PYTHON_PATH}
+                script {
+                    echo "Running Django tests..."
                     
-                    if exist "manage.py" (
-                        echo Checking Django project...
-                        "${env.PYTHON_PATH}" manage.py check
-                        
-                        echo Running tests from tests.py...
-                        "${env.PYTHON_PATH}" manage.py test project.tests --verbosity=2
-                    ) else (
-                        echo manage.py not found
-                        exit 1
-                    )
-                """
+                    bat '''
+                        if exist "manage.py" (
+                            echo Checking Django project...
+                            python manage.py check
+                            
+                            echo Running tests from tests.py...
+                            python manage.py test project.tests --verbosity=2
+                        ) else (
+                            echo manage.py not found
+                            exit 1
+                        )
+                    '''
+                }
             }
             post {
                 success {
@@ -122,7 +92,10 @@ pipeline {
         
         stage('Run Frontend Tests') {
             when {
-                expression { env.IS_MAIN_BRANCH == 'false' }
+                expression {
+                    def branch = env.GIT_BRANCH ?: ''
+                    return branch != 'main' && branch != 'master'
+                }
             }
             steps {
                 dir(env.FRONTEND_DIR) {
@@ -144,28 +117,27 @@ pipeline {
             }
         }
         
-        // BUILD FOR PRODUCTION - ТОЛЬКО ДЛЯ MAIN ВЕТКИ
         stage('Build for Production') {
             when {
-                expression { env.IS_MAIN_BRANCH == 'true' }
+                anyOf {
+                    branch 'main'
+                    branch 'master'
+                }
             }
             steps {
                 script {
-                    echo "Building for Production on main branch"
+                    echo "Building for Production"
                     
-                    // Сборка фронтенда
                     dir(env.FRONTEND_DIR) {
                         bat 'npm run build 2>&1 || echo "Frontend build completed"'
                         echo "Frontend built"
                     }
                     
-                    // Сборка бэкенда (если Python доступен)
                     if (env.PYTHON_AVAILABLE == 'true') {
-                        bat """
-                            @echo off
+                        bat '''
                             if exist "manage.py" (
                                 echo Collecting Django static files...
-                                "${env.PYTHON_PATH}" manage.py collectstatic --noinput
+                                python manage.py collectstatic --noinput
                                 
                                 echo Creating archive...
                                 mkdir dist 2>nul
@@ -174,7 +146,7 @@ pipeline {
                                 copy requirements.txt dist\\ 2>nul
                                 echo Backend build completed
                             )
-                        """
+                        '''
                     }
                     
                     echo "Production build completed"
@@ -182,38 +154,17 @@ pipeline {
             }
         }
         
-        // DEPLOY - ТОЛЬКО ДЛЯ MAIN ВЕТКИ
-        stage('Deploy') {
+        stage('Demo Deploy') {
             when {
-                expression { env.IS_MAIN_BRANCH == 'true' }
+                anyOf {
+                    branch 'main'
+                    branch 'master'
+                }
             }
             steps {
-                script {
-                    echo "Starting deployment on main branch"
-                    
-                    // Здесь будет ваш реальный процесс деплоя
-                    // Например, копирование файлов на сервер, запуск Docker и т.д.
-                    
-                    bat 'echo Deployment to production server started'
-                    
-                    // Пример: копирование собранных файлов
-                    bat '''
-                        @echo off
-                        echo Copying built files to server...
-                        REM Добавьте здесь реальные команды деплоя
-                        echo Files copied successfully
-                    '''
-                    
-                    // Пример: перезапуск сервисов
-                    bat '''
-                        @echo off
-                        echo Restarting services...
-                        REM Добавьте здесь команды перезапуска сервисов
-                        echo Services restarted
-                    '''
-                    
-                    echo "Deployment completed successfully"
-                }
+                echo "Demo deployment"
+                bat 'echo Deployment completed successfully (demo)'
+                echo "Deployment completed"
             }
         }
     }
