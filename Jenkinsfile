@@ -31,58 +31,85 @@ pipeline {
             }
         }
         
-        stage('Install Backend Dependencies') {
-            steps {
-                script {
-                    try {
-                        bat 'python --version'
-                        echo "Python found"
-                        env.PYTHON_AVAILABLE = 'true'
-                    } catch (Exception e) {
-                        echo "Python not found, skipping backend dependencies"
-                        env.PYTHON_AVAILABLE = 'false'
-                        return
-                    }
+    stage('Setup Python') {
+        steps {
+            script {
+                try {
+                    // Получить полный путь к Python
+                    def pythonOutput = bat(
+                        script: '@echo off && where python',
+                        returnStdout: true,
+                        returnStatus: true
+                    )
                     
-                    bat '''
-                        if exist "requirements.txt" (
-                            echo Installing dependencies from requirements.txt...
-                            pip install -r requirements.txt
-                        ) else (
-                            echo requirements.txt not found
-                            pip install django djangorestframework
-                        )
-                    '''
-                    echo "Backend dependencies installed"
+                    if (pythonOutput == 0) {
+                        def pythonPath = bat(
+                            script: '@echo off && where python',
+                            returnStdout: true
+                        ).trim().split('\r\n')[0].trim()
+                        
+                        env.PYTHON_PATH = pythonPath
+                        echo "Python found at: ${env.PYTHON_PATH}"
+                        
+                        // Проверим, что Python работает
+                        bat "\"${env.PYTHON_PATH}\" --version"
+                        env.PYTHON_AVAILABLE = 'true'
+                    } else {
+                        echo "Python not found"
+                        env.PYTHON_AVAILABLE = 'false'
+                    }
+                } catch (Exception e) {
+                    echo "Error checking Python: ${e.getMessage()}"
+                    env.PYTHON_AVAILABLE = 'false'
                 }
             }
         }
-        
-       stage('Run Backend Tests') {
-    steps {
-        script {
-            echo "Running Django tests..."
-            
-            bat '''
+    }
+
+    stage('Install Backend Dependencies') {
+        when {
+            expression { env.PYTHON_AVAILABLE == 'true' }
+        }
+        steps {
+            bat """
                 @echo off
-                echo Checking Python availability...
-                where python
-                python --version
+                echo Using Python from: ${env.PYTHON_PATH}
+                
+                if exist "requirements.txt" (
+                    echo Installing dependencies from requirements.txt...
+                    "${env.PYTHON_PATH}" -m pip install -r requirements.txt
+                ) else (
+                    echo requirements.txt not found
+                    "${env.PYTHON_PATH}" -m pip install django djangorestframework
+                )
+            """
+            echo "Backend dependencies installed"
+        }
+    }
+
+    stage('Run Backend Tests') {
+        when {
+            expression { env.PYTHON_AVAILABLE == 'true' }
+        }
+        steps {
+            echo "Running Django tests with Python: ${env.PYTHON_PATH}"
+            
+            bat """
+                @echo off
+                echo Python path: ${env.PYTHON_PATH}
                 
                 if exist "manage.py" (
                     echo Checking Django project...
-                    python manage.py check
+                    "${env.PYTHON_PATH}" manage.py check
                     
                     echo Running tests from tests.py...
-                    python manage.py test project.tests --verbosity=2
+                    "${env.PYTHON_PATH}" manage.py test project.tests --verbosity=2
                 ) else (
                     echo manage.py not found
                     exit 1
                 )
-            '''
-             env.PYTHON_AVAILABLE = 'true'
+            """
         }
-    }
         post {
             success {
                 echo 'Django tests passed successfully'
@@ -91,7 +118,7 @@ pipeline {
                 echo 'Django tests failed'
             }
         }
-    }
+        }
         
         stage('Run Frontend Tests') {
             when {
