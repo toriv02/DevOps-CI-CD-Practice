@@ -60,55 +60,6 @@ pipeline {
             }
         }
         
-<<<<<<< HEAD
-        stage('Install Backend Dependencies') {
-            steps {
-                script {
-                    try {
-                        bat 'python --version'
-                        echo "Python found"
-                        env.PYTHON_AVAILABLE = 'true'
-                    } catch (Exception e) {
-                        echo "Python not found, skipping backend dependencies"
-                        env.PYTHON_AVAILABLE = 'false'
-                        return
-                    }
-                    
-                    bat '''
-                        if exist "requirements.txt" (
-                            echo Installing dependencies from requirements.txt...
-                            pip install -r requirements.txt
-                        ) else (
-                            echo requirements.txt not found
-                            pip install django djangorestframework
-                        )
-                    '''
-                    echo "Backend dependencies installed"
-                }
-            }
-        }
-        
-        stage('Run Backend Tests') {
-            when {
-                expression { return env.PYTHON_AVAILABLE == 'true' }
-            }
-            steps {
-                script {
-                    echo "Running Django tests..."
-                    
-                    bat '''
-                        if exist "manage.py" (
-                            echo Checking Django project...
-                            python manage.py check
-                            
-                            echo Running tests from tests.py...
-                            python manage.py test project.tests --verbosity=2
-                        ) else (
-                            echo manage.py not found
-                            exit 1
-                        )
-                    '''
-=======
         stage('Run Backend Tests') {
             when {
                 expression {
@@ -140,7 +91,6 @@ pipeline {
                     } else {
                         echo "Python not available, skipping backend tests"
                     }
->>>>>>> development
                 }
             }
             post {
@@ -178,15 +128,9 @@ pipeline {
         
         stage('Deploy to Production') {
             when {
-<<<<<<< HEAD
-                anyOf {
-                    branch 'main'
-                    branch 'master'
-=======
                 expression {
                     def branch = env.GIT_BRANCH ?: ''
                     return branch == 'main' || branch == 'master' || branch == 'origin/main' || branch == 'origin/master'
->>>>>>> development
                 }
             }
             steps {
@@ -223,23 +167,6 @@ pipeline {
                 }
             }
         }
-<<<<<<< HEAD
-        
-        stage('Demo Deploy') {
-            when {
-                anyOf {
-                    branch 'main'
-                    branch 'master'
-                }
-            }
-            steps {
-                echo "Demo deployment"
-                bat 'echo Deployment completed successfully (demo)'
-                echo "Deployment completed"
-            }
-        }
-=======
->>>>>>> development
     }
     
     post {
