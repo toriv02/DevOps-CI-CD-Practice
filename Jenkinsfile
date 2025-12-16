@@ -34,33 +34,25 @@ pipeline {
     stage('Setup Python') {
         steps {
             script {
-                try {
-                    // Получить полный путь к Python
-                    def pythonOutput = bat(
-                        script: '@echo off && where python',
-                        returnStdout: true,
-                        returnStatus: true
-                    )
+                // Явно указываем путь к Python, который вы нашли
+                def pythonPath = "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python314\\python.exe"
+                
+                // Проверяем, существует ли файл
+                def exists = bat(
+                    script: "@echo off && if exist \"${pythonPath}\" (echo EXISTS) else (echo NOT_FOUND)",
+                    returnStdout: true
+                ).trim()
+                
+                if (exists.contains("EXISTS")) {
+                    env.PYTHON_PATH = pythonPath
+                    env.PYTHON_AVAILABLE = 'true'
+                    echo "Python found at: ${env.PYTHON_PATH}"
                     
-                    if (pythonOutput == 0) {
-                        def pythonPath = bat(
-                            script: '@echo off && where python',
-                            returnStdout: true
-                        ).trim().split('\r\n')[0].trim()
-                        
-                        env.PYTHON_PATH = pythonPath
-                        echo "Python found at: ${env.PYTHON_PATH}"
-                        
-                        // Проверим, что Python работает
-                        bat "\"${env.PYTHON_PATH}\" --version"
-                        env.PYTHON_AVAILABLE = 'true'
-                    } else {
-                        echo "Python not found"
-                        env.PYTHON_AVAILABLE = 'false'
-                    }
-                } catch (Exception e) {
-                    echo "Error checking Python: ${e.getMessage()}"
+                    // Проверяем версию
+                    bat "\"${env.PYTHON_PATH}\" --version"
+                } else {
                     env.PYTHON_AVAILABLE = 'false'
+                    echo "Python not found at: ${pythonPath}"
                 }
             }
         }
@@ -88,36 +80,36 @@ pipeline {
     }
 
     stage('Run Backend Tests') {
-        when {
-            expression { env.PYTHON_AVAILABLE == 'true' }
-        }
-        steps {
-            echo "Running Django tests with Python: ${env.PYTHON_PATH}"
-            
-            bat """
-                @echo off
-                echo Python path: ${env.PYTHON_PATH}
+            when {
+                expression { env.PYTHON_AVAILABLE == 'true' }
+            }
+            steps {
+                echo "Running Django tests with Python: ${env.PYTHON_PATH}"
                 
-                if exist "manage.py" (
-                    echo Checking Django project...
-                    "${env.PYTHON_PATH}" manage.py check
+                bat """
+                    @echo off
+                    echo Python path: ${env.PYTHON_PATH}
                     
-                    echo Running tests from tests.py...
-                    "${env.PYTHON_PATH}" manage.py test project.tests --verbosity=2
-                ) else (
-                    echo manage.py not found
-                    exit 1
-                )
-            """
-        }
-        post {
-            success {
-                echo 'Django tests passed successfully'
+                    if exist "manage.py" (
+                        echo Checking Django project...
+                        "${env.PYTHON_PATH}" manage.py check
+                        
+                        echo Running tests from tests.py...
+                        "${env.PYTHON_PATH}" manage.py test project.tests --verbosity=2
+                    ) else (
+                        echo manage.py not found
+                        exit 1
+                    )
+                """
             }
-            failure {
-                echo 'Django tests failed'
+            post {
+                success {
+                    echo 'Django tests passed successfully'
+                }
+                failure {
+                    echo 'Django tests failed'
+                }
             }
-        }
         }
         
         stage('Run Frontend Tests') {
