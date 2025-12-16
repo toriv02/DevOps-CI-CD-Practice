@@ -40,7 +40,7 @@ pipeline {
                         env.PYTHON_AVAILABLE = 'true'
                     } catch (Exception e) {
                         echo "Python not found, skipping backend dependencies"
-                        env.PYTHON_AVAILABLE = 'true'
+                        env.PYTHON_AVAILABLE = 'false'
                         return
                     }
                     
@@ -58,35 +58,40 @@ pipeline {
             }
         }
         
-        stage('Run Backend Tests') {
-           
-            steps {
-                script {
-                    echo "Running Django tests..."
+       stage('Run Backend Tests') {
+    steps {
+        script {
+            echo "Running Django tests..."
+            
+            bat '''
+                @echo off
+                echo Checking Python availability...
+                where python
+                python --version
+                
+                if exist "manage.py" (
+                    echo Checking Django project...
+                    python manage.py check
                     
-                    bat '''
-                        if exist "manage.py" (
-                            echo Checking Django project...
-                            python manage.py check
-                            
-                            echo Running tests from tests.py...
-                            python manage.py test project.tests --verbosity=2
-                        ) else (
-                            echo manage.py not found
-                            exit 1
-                        )
-                    '''
-                }
+                    echo Running tests from tests.py...
+                    python manage.py test project.tests --verbosity=2
+                ) else (
+                    echo manage.py not found
+                    exit 1
+                )
+            '''
+             env.PYTHON_AVAILABLE = 'true'
+        }
+    }
+        post {
+            success {
+                echo 'Django tests passed successfully'
             }
-            post {
-                success {
-                    echo 'Django tests passed successfully'
-                }
-                failure {
-                    echo 'Django tests failed'
-                }
+            failure {
+                echo 'Django tests failed'
             }
         }
+    }
         
         stage('Run Frontend Tests') {
             when {
@@ -117,9 +122,9 @@ pipeline {
         
         stage('Build for Production') {
             when {
-                anyOf {
-                    branch 'main'
-                    branch 'master'
+                expression {
+                    def branch = env.GIT_BRANCH ?: ''
+                    return branch != 'main' && branch != 'master'
                 }
             }
             steps {
@@ -154,9 +159,9 @@ pipeline {
         
         stage('Demo Deploy') {
             when {
-                anyOf {
-                    branch 'main'
-                    branch 'master'
+                expression {
+                    def branch = env.GIT_BRANCH ?: ''
+                    return branch != 'main' && branch != 'master'
                 }
             }
             steps {
