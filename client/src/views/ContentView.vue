@@ -271,7 +271,7 @@ async function onUpdateContent() {
 }
 
 .form-control, .form-select {
-  background-color: #495057;
+  background-color: #000c18;
   color: #fff;
   border: 1px solid #6c757d;
 }

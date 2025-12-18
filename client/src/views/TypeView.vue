@@ -65,7 +65,7 @@ async function onUpdateType() {
             v-model="typeToAdd.name"
             required
           />
-          <label for="floatingInput">Название типа</label>
+          <label for="floatingInput">Название типа!</label>
         </div>
       </div>
       <div class="col-auto">
