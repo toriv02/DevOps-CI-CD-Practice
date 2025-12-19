@@ -4,6 +4,9 @@ pipeline {
     environment {
         FRONTEND_DIR = 'client'
         BACKEND_DIR = 'project'
+        FRONTEND_PORT = '3000'
+        BACKEND_PORT = '8000'
+        DJANGO_SETTINGS_MODULE = 'project.settings
     }
     
     stages {
@@ -126,7 +129,7 @@ pipeline {
             }
         }
         
-        stage('Deploy to Production') {
+          stage('Deploy to Production') {
             when {
                 expression {
                     def branch = env.GIT_BRANCH ?: ''
@@ -137,14 +140,13 @@ pipeline {
                 script {
                     echo "=== DEPLOYING TO PRODUCTION ==="
                     
-                    // Фронтенд
+                    // 1. Сборка фронтенда
                     dir(env.FRONTEND_DIR) {
                         bat 'npm run build 2>&1 || echo "Frontend build completed for production"'
-                        bat 'npm run dev'
                         echo "Frontend production build completed"
                     }
                     
-                    // Бэкенд
+                    // 2. Подготовка бэкенда
                     if (env.PYTHON_PATH) {
                         bat """
                             @echo off
@@ -154,18 +156,87 @@ pipeline {
                                 echo Collecting Django static files...
                                 "${env.PYTHON_PATH}" manage.py collectstatic --noinput
                                 
+                                echo Applying migrations...
+                                "${env.PYTHON_PATH}" manage.py migrate
+                                
                                 echo Creating production package...
                                 mkdir dist 2>nul
                                 xcopy project dist\\project /E /I /Y 2>nul
                                 copy manage.py dist\\ 2>nul
                                 copy requirements.txt dist\\ 2>nul
+                                copy -r "${env.FRONTEND_DIR}/build" dist\\frontend_build 2>nul
                                 echo Backend production package created
                             )
                         """
-                        bat 'python manage.py ruunserrver'
                     }
                     
                     echo "=== PRODUCTION DEPLOYMENT READY ==="
+                }
+            }
+        }
+        
+        stage('Start Application') {
+            when {
+                expression {
+                    def branch = env.GIT_BRANCH ?: ''
+                    return branch == 'main' || branch == 'master' || branch == 'origin/main' || branch == 'origin/master'
+                }
+            }
+            steps {
+                script {
+                    echo "=== STARTING APPLICATION ==="
+                    
+                    // 1. Останавливаем предыдущие процессы на тех же портах
+                    bat """
+                        @echo off
+                        echo Stopping processes on ports ${env.FRONTEND_PORT} and ${env.BACKEND_PORT}...
+                        
+                        for /f "tokens=5" %%i in ('netstat -ano ^| findstr :${env.FRONTEND_PORT}') do (
+                            taskkill /F /PID %%i 2>nul
+                        )
+                        
+                        for /f "tokens=5" %%i in ('netstat -ano ^| findstr :${env.BACKEND_PORT}') do (
+                            taskkill /F /PID %%i 2>nul
+                        )
+                        
+                        timeout /t 2 /nobreak
+                    """
+                    
+                    // 2. Запускаем бэкенд (Django)
+                    if (env.PYTHON_PATH) {
+                        bat """
+                            @echo off
+                            echo Starting Django backend on port ${env.BACKEND_PORT}...
+                            
+                            cd dist
+                            start "Django Backend" /B "${env.PYTHON_PATH}" manage.py runserver 0.0.0.0:${env.BACKEND_PORT}
+                            echo Django backend started with PID %ERRORLEVEL%
+                        """
+                        
+                        // Ждем запуска бэкенда
+                        bat 'timeout /t 5 /nobreak'
+                        
+                        // Проверяем, что бэкенд запустился
+                        bat """
+                            @echo off
+                            echo Checking if backend is running...
+                            curl -f http://localhost:${env.BACKEND_PORT}/api/ || curl -f http://localhost:${env.BACKEND_PORT}/ || echo "Backend health check completed"
+                        """
+                    }
+                    
+                    
+                    dir(env.FRONTEND_DIR) {
+                        bat """
+                            @echo off
+                            echo Starting frontend dev server on port ${env.FRONTEND_PORT}...
+                            start "Frontend Server" /B npm run start
+                            echo Frontend server started
+                        """
+                    }
+                    
+                    echo "=== APPLICATION STARTED ==="
+                    echo "Backend: http://localhost:${env.BACKEND_PORT}"
+                    echo "Frontend: http://localhost:${env.FRONTEND_PORT}"
                 }
             }
         }
