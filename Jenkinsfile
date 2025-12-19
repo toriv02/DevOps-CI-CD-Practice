@@ -24,14 +24,14 @@ pipeline {
         
         stage('Install Dependencies') {
             steps {
-                // Всегда устанавливаем зависимости для обеих частей
+                
                 script {
                     dir(env.FRONTEND_DIR) {
                         bat 'npm ci --silent'
                         echo "Frontend dependencies installed"
                     }
                     
-                    // Проверяем и устанавливаем Python зависимости
+                    
                     def pythonPath = "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python314\\python.exe"
                     def exists = bat(
                         script: "@echo off && if exist \"${pythonPath}\" (echo EXISTS) else (echo NOT_FOUND)",
@@ -64,7 +64,7 @@ pipeline {
             when {
                 expression {
                     def branch = env.GIT_BRANCH ?: ''
-                    // Тесты для всех веток кроме main/master
+                    
                     return branch != 'main' && branch != 'master' && branch != 'origin/main' && branch != 'origin/master'
                 }
             }
@@ -106,7 +106,7 @@ pipeline {
         stage('Build Frontend') {
             steps {
                 dir(env.FRONTEND_DIR) {
-                    // Проверяем есть ли скрипт build
+                   
                     script {
                         def hasBuildScript = bat(
                             script: 'npm run 2>&1 | findstr /i "build"',
