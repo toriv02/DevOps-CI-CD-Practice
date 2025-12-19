@@ -6,7 +6,7 @@ pipeline {
         BACKEND_DIR = 'project'
         FRONTEND_PORT = '3000'
         BACKEND_PORT = '8000'
-        DJANGO_SETTINGS_MODULE = 'project.settings
+        DJANGO_SETTINGS_MODULE = 'project.settings'
     }
     
     stages {
