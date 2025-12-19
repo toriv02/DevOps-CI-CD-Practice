@@ -8,6 +8,7 @@ pipeline {
         BACKEND_PORT = '8000'
         DJANGO_SETTINGS_MODULE = 'project.settings'
         DEPLOY_DIR = 'C:\\deploy\\myapp'
+        CHCP_COMMAND = '@chcp 65001 > nul'
     }
     
     stages {
@@ -43,6 +44,7 @@ pipeline {
                         env.PYTHON_PATH = pythonPath
                         bat """
                             @echo off
+                            ${env.CHCP_COMMAND}
                             echo Using Python from: ${env.PYTHON_PATH}
                             
                             if exist "requirements.txt" (
@@ -74,6 +76,7 @@ pipeline {
                         echo "Running Django tests with Python: ${env.PYTHON_PATH}"
                         bat """
                             @echo off
+                            ${env.CHCP_COMMAND}
                             echo Python path: ${env.PYTHON_PATH}
                             
                             if exist "manage.py" (
@@ -144,6 +147,7 @@ pipeline {
                     // Создаем директорию для деплоя
                     bat """
                         @echo off
+                        ${env.CHCP_COMMAND}
                         echo Creating deployment directory...
                         if not exist "${env.DEPLOY_DIR}" mkdir "${env.DEPLOY_DIR}"
                         if not exist "${env.DEPLOY_DIR}\\backend" mkdir "${env.DEPLOY_DIR}\\backend"
@@ -153,6 +157,7 @@ pipeline {
                     // Копируем backend
                     bat """
                         @echo off
+                        ${env.CHCP_COMMAND}
                         echo Copying backend files...
                         xcopy /E /I /Y "${env.BACKEND_DIR}\\*" "${env.DEPLOY_DIR}\\backend\\"
                         copy requirements.txt "${env.DEPLOY_DIR}\\backend\\" 2>nul || echo "No requirements.txt"
@@ -162,6 +167,7 @@ pipeline {
                     dir(env.FRONTEND_DIR) {
                         bat """
                             @echo off
+                            ${env.CHCP_COMMAND}
                             echo Copying frontend files...
                             if exist "dist" (
                                 xcopy /E /I /Y "dist\\*" "${env.DEPLOY_DIR}\\frontend\\"
@@ -176,6 +182,7 @@ pipeline {
                     // Создаем конфигурационные файлы
                     bat """
                         @echo off
+                        ${env.CHCP_COMMAND}
                         echo Creating configuration files...
                         
                         echo # Django Production Settings > "${env.DEPLOY_DIR}\\backend\\production_settings.py"
@@ -184,6 +191,7 @@ pipeline {
                         
                         echo # Startup script > "${env.DEPLOY_DIR}\\start_app.bat"
                         echo @echo off >> "${env.DEPLOY_DIR}\\start_app.bat"
+                        echo ${env.CHCP_COMMAND} >> "${env.DEPLOY_DIR}\\start_app.bat"
                         echo echo Starting Application... >> "${env.DEPLOY_DIR}\\start_app.bat"
                         echo cd /d "${env.DEPLOY_DIR}\\backend" >> "${env.DEPLOY_DIR}\\start_app.bat"
                         echo "${env.PYTHON_PATH}" manage.py migrate --noinput >> "${env.DEPLOY_DIR}\\start_app.bat"
@@ -207,6 +215,46 @@ pipeline {
             }
         }
         
+        stage('Stop Previous Instances') {
+            when {
+                expression {
+                    def branch = env.GIT_BRANCH ?: ''
+                    return branch == 'main' || branch == 'master' || branch == 'origin/main' || branch == 'origin/master'
+                }
+            }
+            steps {
+                script {
+                    echo "=== STOPPING PREVIOUS INSTANCES ==="
+                    
+                    // Используем более безопасный способ остановки процессов
+                    bat """
+                        @echo off
+                        ${env.CHCP_COMMAND}
+                        echo Searching for Python processes...
+                        
+                        echo Killing Python processes on port ${env.BACKEND_PORT}...
+                        for /f "tokens=5" %%a in ('netstat -ano ^| findstr :${env.BACKEND_PORT}') do (
+                            echo Killing process with PID %%a
+                            taskkill /PID %%a /F > nul 2>&1
+                        )
+                        
+                        echo Killing Python processes on port ${env.FRONTEND_PORT}...
+                        for /f "tokens=5" %%a in ('netstat -ano ^| findstr :${env.FRONTEND_PORT}') do (
+                            echo Killing process with PID %%a
+                            taskkill /PID %%a /F > nul 2>&1
+                        )
+                        
+                        echo Killing any remaining Python processes...
+                        taskkill /IM python.exe /F > nul 2>&1 || echo No python.exe processes found
+                        taskkill /IM python314.exe /F > nul 2>&1 || echo No python314.exe processes found
+                        
+                        timeout /t 2 /nobreak
+                        echo Previous instances stopped
+                    """
+                }
+            }
+        }
+        
         stage('Deploy and Start') {
             when {
                 expression {
@@ -218,45 +266,45 @@ pipeline {
                 script {
                     echo "=== DEPLOYING AND STARTING APPLICATION ==="
                     
-                    // Останавливаем предыдущие экземпляры приложения
-                    bat """
-                        @echo off
-                        echo Stopping previous instances...
-                        taskkill /F /IM python.exe 2>nul || echo No Python processes found
-                        taskkill /F /IM python314.exe 2>nul || echo No Python314 processes found
-                        timeout /t 2
-                    """
-                    
                     // Устанавливаем зависимости для продакшена
                     bat """
                         @echo off
+                        ${env.CHCP_COMMAND}
                         cd /d "${env.DEPLOY_DIR}\\backend"
                         echo Installing production dependencies...
                         "${env.PYTHON_PATH}" -m pip install -r requirements.txt
                     """
                     
-                    // Запускаем приложение
+                    // Запускаем приложение с помощью созданного скрипта
                     bat """
                         @echo off
+                        ${env.CHCP_COMMAND}
                         cd /d "${env.DEPLOY_DIR}"
                         echo Starting application...
-                        start "MyApp Production" start_app.bat
+                        
+                        start "MyApp Production" cmd /c "start_app.bat"
+                        
+                        echo Application started in background
                     """
                     
-                    // Ждем запуска и проверяем
-                    bat 'timeout /t 10 /nobreak'
+                    // Ждем запуска
+                    bat 'timeout /t 15 /nobreak'
                     
                     // Проверяем, что сервисы работают
                     bat """
                         @echo off
+                        ${env.CHCP_COMMAND}
                         echo Checking if services are running...
-                        
-                        echo Testing backend...
-                        curl -f http://localhost:${env.BACKEND_PORT}/ || curl -f http://localhost:${env.BACKEND_PORT}/api/ || echo "Backend check completed"
-                        
-                        echo Testing frontend...
-                        curl -f http://localhost:${env.FRONTEND_PORT}/ || echo "Frontend check completed"
-                        
+                        echo.
+                        echo Testing backend on port ${env.BACKEND_PORT}...
+                        curl -s -o nul -w "%%{http_code}" http://localhost:${env.BACKEND_PORT}/ || (
+                          echo Backend is not responding on port ${env.BACKEND_PORT}
+                          echo Trying alternative endpoint...
+                          curl -s -o nul -w "%%{http_code}" http://localhost:${env.BACKEND_PORT}/api/ || echo Backend check completed with errors
+                        )
+                        echo.
+                        echo Testing frontend on port ${env.FRONTEND_PORT}...
+                        curl -s -o nul -w "%%{http_code}" http://localhost:${env.FRONTEND_PORT}/ || echo Frontend check completed
                         echo.
                         echo ========================================
                         echo APPLICATION SUCCESSFULLY DEPLOYED!
@@ -265,6 +313,10 @@ pipeline {
                         echo Frontend App: http://localhost:${env.FRONTEND_PORT}
                         echo Admin Panel: http://localhost:${env.BACKEND_PORT}/admin
                         echo ========================================
+                        echo.
+                        echo To manually start the application later, run:
+                        echo cd ${env.DEPLOY_DIR}
+                        echo start_app.bat
                     """
                     
                     echo "=== DEPLOYMENT COMPLETE ==="
@@ -279,18 +331,18 @@ pipeline {
             echo "Status: ${currentBuild.result ?: 'SUCCESS'}"
             echo "Duration: ${currentBuild.durationString}"
             echo "Branch: ${env.GIT_BRANCH ?: 'not defined'}"
-            
-            // Не очищаем workspace, чтобы сохранить деплой
-            // cleanWs()
         }
         success {
             echo 'Pipeline completed successfully'
-            echo 'Application is running at:'
+            echo 'Application should be running at:'
             echo "  Backend: http://localhost:${env.BACKEND_PORT}"
             echo "  Frontend: http://localhost:${env.FRONTEND_PORT}"
+            echo "  If not, check C:\\deploy\\myapp\\start_app.bat"
         }
         failure {
             echo 'Pipeline failed'
+            // Сохраняем workspace для отладки
+            echo 'Workspace preserved for debugging'
         }
     }
 }
