@@ -152,7 +152,7 @@ pipeline {
                             if exist "manage.py" (
                                 echo Collecting Django static files...
                                 "${env.PYTHON_PATH}" manage.py collectstatic --noinput
-                                
+                                python manage.py runserver
                                 echo Creating production package...
                                 mkdir dist 2>nul
                                 xcopy project dist\\project /E /I /Y 2>nul
