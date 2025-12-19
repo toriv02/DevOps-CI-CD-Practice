@@ -186,21 +186,7 @@ pipeline {
                 script {
                     echo "=== STARTING APPLICATION ==="
                     
-                    // 1. Останавливаем предыдущие процессы на тех же портах
-                    bat """
-                        @echo off
-                        echo Stopping processes on ports ${env.FRONTEND_PORT} and ${env.BACKEND_PORT}...
-                        
-                        for /f "tokens=5" %%i in ('netstat -ano ^| findstr :${env.FRONTEND_PORT}') do (
-                            taskkill /F /PID %%i 2>nul
-                        )
-                        
-                        for /f "tokens=5" %%i in ('netstat -ano ^| findstr :${env.BACKEND_PORT}') do (
-                            taskkill /F /PID %%i 2>nul
-                        )
-                        
-                        timeout /t 2 /nobreak
-                    """
+                 
                     
                     // 2. Запускаем бэкенд (Django)
                     if (env.PYTHON_PATH) {
