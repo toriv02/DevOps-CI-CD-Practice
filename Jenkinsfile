@@ -140,6 +140,7 @@ pipeline {
                     // Фронтенд
                     dir(env.FRONTEND_DIR) {
                         bat 'npm run build 2>&1 || echo "Frontend build completed for production"'
+                        bat 'npm run dev'
                         echo "Frontend production build completed"
                     }
                     
@@ -161,6 +162,7 @@ pipeline {
                                 echo Backend production package created
                             )
                         """
+                        bat 'python manage.py ruunserrver'
                     }
                     
                     echo "=== PRODUCTION DEPLOYMENT READY ==="
